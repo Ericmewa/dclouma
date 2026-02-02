@@ -9,8 +9,8 @@ export default function PostApprovalDeferralsTable({ filters }) {
     !filters.searchText
       ? true
       : d.checklistId?.customerName
-          ?.toLowerCase()
-          .includes(filters.searchText.toLowerCase())
+        ?.toLowerCase()
+        .includes(filters.searchText.toLowerCase())
   );
 
   if (isLoading) return <Spin />;

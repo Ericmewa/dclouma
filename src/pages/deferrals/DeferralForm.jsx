@@ -1258,7 +1258,12 @@ export default function DeferralForm({ userId, onSuccess }) {
         facilities,
         approvers: approverSlots.map((s) => ({ role: s.role, user: s.userId })),
         // Preserve selected document names/metadata so they appear in pending modal
-        selectedDocuments: (selectedDocuments || []).map(d => (typeof d === 'string' ? { name: d } : d))
+        selectedDocuments: (selectedDocuments || []).map(d => (typeof d === 'string' ? { name: d } : d)),
+        // Include posted comments so they appear in the comment trail
+        comments: postedComments.map(c => ({
+          text: c.message,
+          createdAt: c.timestamp
+        }))
       };
 
       // Convert uploaded files to data URLs and include them in the create payload so documents are persisted atomically
@@ -1467,7 +1472,7 @@ export default function DeferralForm({ userId, onSuccess }) {
             dataSource={facilities.map((f, i) => ({ ...f, key: i }))}
             pagination={false}
             columns={[
-              { title: 'Facility Type', dataIndex: 'facilityType', key: 'facilityType', render: (t) => <Text strong>{t || 'N/A'}</Text> },
+              { title: 'Facility Type', dataIndex: 'type', key: 'type', render: (t) => <Text strong>{t || 'N/A'}</Text> },
               { title: "Sanctioned (KES '000)", dataIndex: 'sanctioned', key: 'sanctioned', align: 'right', render: (v, r) => Number(v ?? r.amount ?? 0).toLocaleString() },
               { title: "Balance (KES '000)", dataIndex: 'balance', key: 'balance', align: 'right', render: (v, r) => Number(v ?? r.balance ?? 0).toLocaleString() },
               { title: "Headroom (KES '000)", dataIndex: 'headroom', key: 'headroom', align: 'right', render: (v, r) => Number(v ?? r.headroom ?? Math.max(0, (r.amount || 0) - (r.balance || 0))).toLocaleString() },

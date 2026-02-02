@@ -12,9 +12,10 @@ import { UserOutlined } from "@ant-design/icons";
 import AdminDashboard from "../../pages/admin/AdminDashboard.jsx";
 import CreateUserDrawer from "../../pages/admin/createUserDrawer.jsx";
 import LiveUsers from "../../pages/admin/LiveUsers.jsx";
-import AuditLogsPage from "../../pages/admin/AuditLogsPage.jsx";
+import AuditLogsPage from "../../pages/admin/AuditLogsPage";
 import Navbar from "../Navbar.jsx";
 import SharedSidebar from "../common/SharedSidebar";
+import DeactivatedUsers from "../../pages/admin/DeactivatedUsers.jsx";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
@@ -38,6 +39,13 @@ const AdminLayout = () => {
       label: "All Users",
       icon: <CheckCircle size={18} style={{ color: "#e5e7eb" }} />,
     },
+
+    {
+      key: "deactivated-users",
+      label: "Deactivated Users",
+      icon: <CheckCircle size={18} style={{ color: "#e5e7eb" }} />,
+    },
+
     {
       key: "live-users",
       label: "Live Users",
@@ -101,6 +109,7 @@ const AdminLayout = () => {
             <Route path="/all-users" element={<AdminDashboard />} />
             <Route path="/live-users" element={<LiveUsers />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
+            <Route path="/deactivated-users" element={<DeactivatedUsers />} />
           </Routes>
         </div>
 

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from "react";
 import { useSelector } from "react-redux";
 import {
@@ -125,6 +126,83 @@ const { Text } = Typography;
 const { TextArea } = AntInput;
 const { Panel } = Collapse;
 
+// Helper function to get role tag with color
+const getRoleTag = (role) => {
+  let color = "blue";
+  const roleLower = (role || "").toLowerCase();
+  switch (roleLower) {
+    case "rm":
+      color = "purple";
+      break;
+    case "deferral management":
+      color = "green";
+      break;
+    case "creator":
+      color = "green";
+      break;
+    case "co_checker":
+      color = "volcano";
+      break;
+    case "checker":
+      color = "volcano";
+      break;
+    case "system":
+      color = "default";
+      break;
+    default:
+      color = "blue";
+  }
+  return (
+    <Tag color={color} style={{ marginLeft: 8, textTransform: "uppercase" }}>
+      {roleLower.replace(/_/g, " ")}
+    </Tag>
+  );
+};
+
+// Helper function to remove role from username in brackets
+const formatUsername = (username) => {
+  if (!username) return "System";
+  return username.replace(/\s*\([^)]*\)\s*$/, '').trim();
+};
+
+// Comment Trail Component
+const CommentTrail = ({ history, isLoading }) => {
+  if (isLoading) return <Spin className="block m-5" />;
+  if (!history || history.length === 0) return <i className="pl-4">No historical comments yet.</i>;
+
+  return (
+    <div className="max-h-52 overflow-y-auto">
+      <List
+        dataSource={history}
+        itemLayout="horizontal"
+        renderItem={(item, idx) => {
+          const roleLabel = item.userRole || item.role;
+          const name = formatUsername(item.user) || item.userName || 'System';
+          const text = item.comment || item.notes || item.message || item.text || 'No comment provided.';
+          const timestamp = item.date || item.createdAt || item.timestamp;
+          return (
+            <List.Item key={idx}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Avatar icon={<UserOutlined />} style={{ backgroundColor: '#164679' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <b style={{ fontSize: 14, color: '#164679' }}>{name}</b>
+                    {roleLabel && getRoleTag(roleLabel)}
+                    <span style={{ color: '#4a4a4a' }}>{text}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: '#777' }}>
+                  {timestamp ? dayjs(timestamp).format('M/D/YY, h:mm A') : ''}
+                </div>
+              </div>
+            </List.Item>
+          );
+        }}
+      />
+    </div>
+  );
+};
+
 // Status Display Component - Shows real-time deferral status
 const DeferralStatusAlert = ({ deferral }) => {
   if (!deferral) return null;
@@ -147,7 +225,12 @@ const DeferralStatusAlert = ({ deferral }) => {
 
   // Check for approvers approval
   let allApproversApprovedLocal = false;
-  if (deferral.approvals && deferral.approvals.length > 0) {
+  // First check the allApproversApproved field from backend
+  if (deferral.allApproversApproved !== undefined) {
+    allApproversApprovedLocal = deferral.allApproversApproved;
+  }
+  // Fallback to checking approvals array if field not present
+  else if (deferral.approvals && deferral.approvals.length > 0) {
     allApproversApprovedLocal = deferral.approvals.every(
       (app) => app.status === "approved",
     );
@@ -497,7 +580,7 @@ const Deferrals = ({ userId }) => {
       const q = new URLSearchParams(window.location.search);
       const a = q.get("active");
       if (a === "approved" || a === "pending" || a === "completed") return a;
-    } catch (e) {}
+    } catch (e) { }
     return "pending";
   });
 
@@ -607,6 +690,12 @@ const Deferrals = ({ userId }) => {
       "closed_by_co",
       "closed_by_creator",
     ];
+    const rejectedStatuses = ["rejected", "deferral_rejected"];
+    const returnedStatuses = [
+      "returned_for_rework",
+      "returned_by_creator",
+      "returned_by_checker",
+    ];
 
     let base = deferrals.filter((d) => {
       const s = (d.status || "").toString().toLowerCase();
@@ -629,7 +718,10 @@ const Deferrals = ({ userId }) => {
         return hasCreatorApproved && hasCheckerApproved;
       }
 
-      if (activeTab === "completed") return completedStatuses.includes(s);
+      if (activeTab === "completed") {
+        // COMPLETED tab: Show all completed statuses (closed, rejected, returned)
+        return completedStatuses.includes(s) || rejectedStatuses.includes(s) || returnedStatuses.includes(s);
+      }
       return true;
     });
 
@@ -1137,7 +1229,7 @@ const Deferrals = ({ userId }) => {
     }
   };
 
-  // Download deferral as PDF - Fixed version
+  // Download deferral as PDF - Card-style design matching modal
   const downloadDeferralAsPDF = async () => {
     if (!selectedDeferral || !selectedDeferral._id) {
       message.error("No deferral selected");
@@ -1146,33 +1238,66 @@ const Deferrals = ({ userId }) => {
 
     setActionLoading(true);
     try {
-      // Create PDF document
       const doc = new jsPDF();
 
-      // Set colors
-      const primaryBlue = [22, 70, 121]; // RGB for PRIMARY_BLUE
-      const darkGray = [51, 51, 51];
-      const lightGray = [102, 102, 102];
+      // Colors matching modal theme
+      const PRIMARY_BLUE_RGB = [22, 70, 121];
+      const SECONDARY_PURPLE_RGB = [126, 100, 150];
+      const SUCCESS_GREEN_RGB = [82, 196, 26];
+      const WARNING_ORANGE_RGB = [250, 173, 20];
+      const ERROR_RED_RGB = [255, 77, 79];
+      const DARK_GRAY = [51, 51, 51];
+      const LIGHT_GRAY = [102, 102, 102];
+      const BORDER_COLOR = [200, 200, 200];
 
-      let yPosition = 20;
+      let yPosition = 15;
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 15;
-      const contentWidth = pageWidth - 2 * margin;
+      const contentWidth = pageWidth - (2 * margin);
 
-      // Title
-      doc.setFontSize(18);
+      // Professional Header with background
+      doc.setFillColor(22, 70, 121);
+      doc.rect(0, 0, pageWidth, 35, 'F');
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont(undefined, 'bold');
+      doc.text(`Deferral Request: ${selectedDeferral.deferralNumber || 'N/A'}`, margin, 15);
+      doc.setFontSize(10);
+      doc.setFont(undefined, 'normal');
+      doc.text(`Generated: ${dayjs().format('DD MMM YYYY HH:mm')}`, margin, 25);
+      yPosition = 45;
+
+      // Customer Information Section with styled background
+      doc.setFillColor(255, 250, 205);
+      doc.roundedRect(margin, yPosition, contentWidth, 35, 3, 3, 'F');
+      doc.setDrawColor(200, 180, 100);
+      doc.roundedRect(margin, yPosition, contentWidth, 35, 3, 3, 'S');
+
+      doc.setFontSize(12);
       doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-      doc.text("DEFERRAL DETAILS REPORT", margin, yPosition);
-      yPosition += 12;
+      doc.setFont(undefined, 'bold');
+      doc.text('Customer Information', margin + 5, yPosition + 8);
 
-      // Separator line
-      doc.setDrawColor(22, 70, 121);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 8;
-
-      // Basic Information Section
-      doc.setFontSize(11);
+      doc.setFontSize(10);
       doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      doc.setFont(undefined, 'bold');
+      doc.text('Customer Name:', margin + 5, yPosition + 16);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.customerName || 'N/A', margin + 50, yPosition + 16);
+
+      doc.setFont(undefined, 'bold');
+      doc.text('Customer Number:', margin + 5, yPosition + 24);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.customerNumber || 'N/A', margin + 50, yPosition + 24);
+
+      doc.setFont(undefined, 'bold');
+      doc.text('Loan Type:', margin + 110, yPosition + 16);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.loanType || 'N/A', margin + 135, yPosition + 16);
+
+      yPosition += 45;
+
+      // Deferral Details Section with styled box
 
       const hasCreatorApproved =
         selectedDeferral.creatorApprovalStatus === "approved";
@@ -1183,200 +1308,382 @@ const Deferrals = ({ userId }) => {
       const isFullyApproved =
         hasCreatorApproved && hasCheckerApproved && allApproversApproved;
 
-      const basicInfo = [
-        {
-          label: "Deferral Number:",
-          value: selectedDeferral.deferralNumber || "N/A",
-        },
-        {
-          label: "Customer Name:",
-          value: selectedDeferral.customerName || "N/A",
-        },
-        {
-          label: "Customer Number:",
-          value: selectedDeferral.customerNumber || "N/A",
-        },
-        {
-          label: "DCL No:",
-          value: selectedDeferral.dclNo || selectedDeferral.dclNumber || "N/A",
-        },
-        {
-          label: "Status:",
-          value: isFullyApproved
-            ? "Fully Approved"
-            : selectedDeferral.status || "Pending",
-        },
-        {
-          label: "Created At:",
-          value: dayjs(selectedDeferral.createdAt).format("DD MMM YYYY HH:mm"),
-        },
-      ];
+      doc.setFillColor(245, 247, 250);
+      doc.roundedRect(margin, yPosition, contentWidth, 70, 3, 3, 'F');
+      doc.setDrawColor(200, 200, 200);
+      doc.roundedRect(margin, yPosition, contentWidth, 70, 3, 3, 'S');
 
-      basicInfo.forEach((item) => {
-        doc.setFont(undefined, "bold");
-        doc.text(item.label, margin, yPosition);
-        doc.setFont(undefined, "normal");
-        doc.text(item.value, margin + 50, yPosition);
-        yPosition += 7;
-      });
-
-      yPosition += 5;
-
-      // Loan Information Section
-      doc.setFont(undefined, "bold");
+      doc.setFontSize(12);
       doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-      doc.text("LOAN INFORMATION", margin, yPosition);
-      yPosition += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('Deferral Details', margin + 5, yPosition + 8);
 
-      doc.setDrawColor(22, 70, 121);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 6;
+      doc.setFontSize(9);
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      let detailY = yPosition + 16;
 
+      doc.setFont(undefined, 'bold');
+      doc.text('Deferral Number:', margin + 5, detailY);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.deferralNumber || 'N/A', margin + 45, detailY);
+
+      detailY += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('DCL No:', margin + 5, detailY);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.dclNo || selectedDeferral.dclNumber || 'N/A', margin + 45, detailY);
+
+      detailY += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('Status:', margin + 5, detailY);
+      doc.setFont(undefined, 'normal');
+      doc.setTextColor(isFullyApproved ? 82 : 250, isFullyApproved ? 196 : 173, isFullyApproved ? 26 : 20);
+      doc.text(isFullyApproved ? 'Fully Approved' : selectedDeferral.status || 'Pending', margin + 45, detailY);
       doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
 
+      detailY = yPosition + 16;
+      doc.setFont(undefined, 'bold');
+      doc.text('Creator Status:', margin + 105, detailY);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.creatorApprovalStatus || 'pending', margin + 145, detailY);
+
+      detailY += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('Creator Date:', margin + 105, detailY);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.creatorApprovalDate ? dayjs(selectedDeferral.creatorApprovalDate).format('DD MMM YYYY HH:mm') : 'N/A', margin + 145, detailY);
+
+      detailY += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('Checker Status:', margin + 105, detailY);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.checkerApprovalStatus || 'pending', margin + 145, detailY);
+
+      detailY += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('Checker Date:', margin + 105, detailY);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.checkerApprovalDate ? dayjs(selectedDeferral.checkerApprovalDate).format('DD MMM YYYY HH:mm') : 'N/A', margin + 145, detailY);
+
+      detailY += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('Created At:', margin + 105, detailY);
+      doc.setFont(undefined, 'normal');
+      doc.text(dayjs(selectedDeferral.createdAt).format('DD MMM YYYY HH:mm'), margin + 145, detailY);
+
+      detailY = yPosition + 37;
+      doc.setFont(undefined, 'bold');
+      doc.text('Approvers Status:', margin + 5, detailY);
+      doc.setFont(undefined, 'normal');
+      const approvers = selectedDeferral.approverFlow || selectedDeferral.approversFlow || [];
+      const approvedCount = approvers.filter((a) => a.approved || a.status === 'approved').length;
+      doc.text(approvers.length ? `${approvedCount} of ${approvers.length} Approved` : 'N/A', margin + 45, detailY);
+
+      yPosition += 75;
+
+      // Loan Information with styled background
       const loanAmount = Number(selectedDeferral.loanAmount || 0);
-      const formattedLoanAmount = loanAmount
-        ? `KSh ${loanAmount.toLocaleString()}`
-        : "Not specified";
+      const formattedLoanAmount = loanAmount ? `KSh ${loanAmount.toLocaleString()}` : 'Not specified';
+      const isUnder75M = loanAmount > 0 && loanAmount < 75000000;
 
-      const loanInfo = [
-        { label: "Loan Type:", value: selectedDeferral.loanType || "N/A" },
-        { label: "Loan Amount:", value: formattedLoanAmount },
-        {
-          label: "Days Sought:",
-          value: `${selectedDeferral.daysSought || 0} days`,
-        },
-        {
-          label: "Next Due Date:",
-          value:
-            selectedDeferral.nextDueDate || selectedDeferral.nextDocumentDueDate
-              ? dayjs(
-                  selectedDeferral.nextDueDate ||
-                    selectedDeferral.nextDocumentDueDate,
-                ).format("DD MMM YYYY")
-              : "Not calculated",
-        },
-        {
-          label: "SLA Expiry:",
-          value: selectedDeferral.slaExpiry
-            ? dayjs(selectedDeferral.slaExpiry).format("DD MMM YYYY HH:mm")
-            : "Not set",
-        },
-      ];
+      doc.setFillColor(240, 248, 255);
+      doc.roundedRect(margin, yPosition, contentWidth, 42, 3, 3, 'F');
+      doc.setDrawColor(200, 200, 200);
+      doc.roundedRect(margin, yPosition, contentWidth, 42, 3, 3, 'S');
 
-      loanInfo.forEach((item) => {
-        doc.setFont(undefined, "bold");
-        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-        doc.text(item.label, margin, yPosition);
-        doc.setFont(undefined, "normal");
-        doc.text(item.value, margin + 50, yPosition);
-        yPosition += 7;
-
-        // Check if we need a new page
-        if (yPosition > 250) {
-          doc.addPage();
-          yPosition = 20;
-        }
-      });
-
-      yPosition += 5;
-
-      // Approval Status Section
-      doc.setFont(undefined, "bold");
+      doc.setFontSize(11);
       doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-      doc.text("APPROVAL STATUS", margin, yPosition);
-      yPosition += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('Loan Information', margin + 5, yPosition + 8);
 
-      doc.setDrawColor(22, 70, 121);
-      doc.line(margin, yPosition, pageWidth - margin, yPosition);
-      yPosition += 6;
+      doc.setFontSize(9);
+      doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+      let loanY = yPosition + 16;
 
+      doc.setFont(undefined, 'bold');
+      doc.text('Loan Amount:', margin + 5, loanY);
+      doc.setFont(undefined, 'normal');
+      doc.text(formattedLoanAmount, margin + 40, loanY);
+      doc.setFont(undefined, 'italic');
+      doc.setFontSize(8);
+      doc.text(isUnder75M ? '(Under 75M)' : '(Above 75M)', margin + 90, loanY);
+
+      loanY += 7;
+      doc.setFontSize(9);
+      doc.setFont(undefined, 'bold');
+      doc.text('Days Sought:', margin + 5, loanY);
+      doc.setFont(undefined, 'normal');
+      const daysColor = selectedDeferral.daysSought > 45 ? [255, 77, 79] : selectedDeferral.daysSought > 30 ? [250, 173, 20] : darkGray;
+      doc.setTextColor(daysColor[0], daysColor[1], daysColor[2]);
+      doc.text(`${selectedDeferral.daysSought || 0} days`, margin + 40, loanY);
       doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
 
-      const approvalInfo = [
-        {
-          label: "Creator Status:",
-          value: `${selectedDeferral.creatorApprovalStatus || "pending"} ${selectedDeferral.creatorApprovalDate ? `(${dayjs(selectedDeferral.creatorApprovalDate).format("DD MMM YYYY HH:mm")})` : ""}`,
-        },
-        {
-          label: "Checker Status:",
-          value: `${selectedDeferral.checkerApprovalStatus || "pending"} ${selectedDeferral.checkerApprovalDate ? `(${dayjs(selectedDeferral.checkerApprovalDate).format("DD MMM YYYY HH:mm")})` : ""}`,
-        },
-      ];
+      loanY += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('Next Due Date:', margin + 5, loanY);
+      doc.setFont(undefined, 'normal');
+      const nextDue = selectedDeferral.nextDueDate || selectedDeferral.nextDocumentDueDate || selectedDeferral.requestedExpiry;
+      doc.text(nextDue ? dayjs(nextDue).format('DD MMM YYYY') : 'Not calculated', margin + 40, loanY);
 
-      approvalInfo.forEach((item) => {
-        doc.setFont(undefined, "bold");
-        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-        doc.text(item.label, margin, yPosition);
-        doc.setFont(undefined, "normal");
-        const lines = doc.splitTextToSize(item.value, contentWidth - 60);
-        doc.text(lines, margin + 50, yPosition);
-        yPosition += 7;
+      loanY += 7;
+      doc.setFont(undefined, 'bold');
+      doc.text('SLA Expiry:', margin + 5, loanY);
+      doc.setFont(undefined, 'normal');
+      doc.text(selectedDeferral.slaExpiry ? dayjs(selectedDeferral.slaExpiry).format('DD MMM YYYY') : 'Not set', margin + 40, loanY);
 
-        if (yPosition > 250) {
-          doc.addPage();
-          yPosition = 20;
-        }
-      });
+      yPosition += 47;
 
-      yPosition += 5;
-
-      // Facilities Section
-      if (
-        selectedDeferral.facilities &&
-        selectedDeferral.facilities.length > 0
-      ) {
-        doc.setFont(undefined, "bold");
-        doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-        doc.text("FACILITIES", margin, yPosition);
-        yPosition += 7;
-
-        doc.setDrawColor(22, 70, 121);
-        doc.line(margin, yPosition, pageWidth - margin, yPosition);
-        yPosition += 6;
-
-        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-        selectedDeferral.facilities.forEach((facility) => {
-          const facilityText = `${facility.facilityNumber || "N/A"} - ${facility.facilityType || "N/A"} (${facility.outstandingAmount || 0})`;
-          const lines = doc.splitTextToSize(facilityText, contentWidth - 10);
-          lines.forEach((line) => {
-            doc.text("• " + line, margin + 5, yPosition);
-            yPosition += 6;
-            if (yPosition > 250) {
-              doc.addPage();
-              yPosition = 20;
-            }
-          });
-        });
-
-        yPosition += 3;
+      if (yPosition > 230) {
+        doc.addPage();
+        yPosition = 20;
       }
 
-      // Deferral Description Section
-      if (selectedDeferral.deferralDescription) {
-        doc.setFont(undefined, "bold");
+      // Facilities Section with Table
+      if (selectedDeferral.facilities && selectedDeferral.facilities.length > 0) {
+        doc.setFontSize(11);
         doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
-        doc.text("DEFERRAL DESCRIPTION", margin, yPosition);
-        yPosition += 7;
+        doc.setFont(undefined, 'bold');
+        doc.text('Facility Details', margin, yPosition);
+        yPosition += 8;
 
-        doc.setDrawColor(22, 70, 121);
-        doc.line(margin, yPosition, pageWidth - margin, yPosition);
-        yPosition += 6;
+        doc.setFillColor(22, 70, 121);
+        doc.rect(margin, yPosition, contentWidth, 8, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(9);
+        doc.text('Type', margin + 2, yPosition + 5);
+        doc.text('Sanctioned', margin + 50, yPosition + 5);
+        doc.text('Balance', margin + 95, yPosition + 5);
+        doc.text('Headroom', margin + 135, yPosition + 5);
+        yPosition += 8;
 
         doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
-        doc.setFont(undefined, "normal");
-        const descLines = doc.splitTextToSize(
-          selectedDeferral.deferralDescription,
-          contentWidth,
-        );
-        descLines.forEach((line) => {
-          doc.text(line, margin, yPosition);
-          yPosition += 6;
+        doc.setFont(undefined, 'normal');
+        selectedDeferral.facilities.forEach((facility, index) => {
+          if (index % 2 === 0) {
+            doc.setFillColor(250, 250, 250);
+            doc.rect(margin, yPosition - 4, contentWidth, 8, 'F');
+          }
+          const facilityType = facility.type || facility.facilityType || 'N/A';
+          doc.text(facilityType, margin + 2, yPosition + 2);
+          doc.text(String(facility.sanctionedAmount || '0'), margin + 50, yPosition + 2);
+          doc.text(String(facility.outstandingAmount || '0'), margin + 95, yPosition + 2);
+          doc.text(String(facility.headroom || '0'), margin + 135, yPosition + 2);
+          yPosition += 8;
+
           if (yPosition > 250) {
             doc.addPage();
             yPosition = 20;
           }
         });
+
+        yPosition += 5;
+      }
+
+      // Deferral Description Section with styled background
+      if (selectedDeferral.deferralDescription) {
+        doc.setFillColor(255, 250, 205);
+        const descLines = doc.splitTextToSize(selectedDeferral.deferralDescription, contentWidth - 20);
+        const boxHeight = Math.max(25, descLines.length * 6 + 15);
+        doc.roundedRect(margin, yPosition, contentWidth, boxHeight, 3, 3, 'F');
+        doc.setDrawColor(200, 180, 100);
+        doc.roundedRect(margin, yPosition, contentWidth, boxHeight, 3, 3, 'S');
+
+        doc.setFontSize(10);
+        doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+        doc.setFont(undefined, 'bold');
+        doc.text('Deferral Description', margin + 5, yPosition + 8);
+
+        doc.setFontSize(9);
+        doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+        doc.setFont(undefined, 'normal');
+        let descY = yPosition + 16;
+        descLines.forEach((line) => {
+          doc.text(line, margin + 5, descY);
+          descY += 6;
+        });
+
+        yPosition += boxHeight + 5;
+
+        if (yPosition > 230) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      }
+
+      // Approval Flow Section with styled badges
+      if (selectedDeferral.approverFlow && selectedDeferral.approverFlow.length > 0) {
+        if (yPosition > 230) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        doc.setFillColor(240, 248, 255);
+        doc.roundedRect(margin, yPosition, contentWidth, 12, 3, 3, 'F');
+        doc.setFontSize(11);
+        doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+        doc.setFont(undefined, 'bold');
+        doc.text('Approval Flow', margin + 5, yPosition + 8);
+        yPosition += 15;
+
+        doc.setFontSize(9);
+        selectedDeferral.approverFlow.forEach((approver, index) => {
+          const approverName = approver.name || approver.user?.name || approver.email || `Approver ${index + 1}`;
+          const status = approver.approved ? 'Approved' : approver.rejected ? 'Rejected' : approver.returned ? 'Returned' : 'Pending';
+          const date = approver.approvedDate || approver.rejectedDate || approver.returnedDate || '';
+          const statusColor = status === 'Approved' ? successGreen : status === 'Rejected' ? [255, 77, 79] : [250, 173, 20];
+
+          // Badge circle
+          doc.setFillColor(statusColor[0], statusColor[1], statusColor[2]);
+          doc.circle(margin + 5, yPosition + 3, 3, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(7);
+          doc.setFont(undefined, 'bold');
+          doc.text(String(index + 1), margin + 3.5, yPosition + 4.2);
+
+          // Approver details
+          doc.setFontSize(9);
+          doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+          doc.setFont(undefined, 'bold');
+          doc.text(approverName, margin + 12, yPosition + 4);
+
+          doc.setFont(undefined, 'normal');
+          doc.setTextColor(statusColor[0], statusColor[1], statusColor[2]);
+          doc.text(status, margin + 95, yPosition + 4);
+
+          if (date) {
+            doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+            doc.setFontSize(8);
+            doc.text(dayjs(date).format('DD MMM YYYY HH:mm'), margin + 130, yPosition + 4);
+          }
+
+          yPosition += 10;
+
+          if (yPosition > 250) {
+            doc.addPage();
+            yPosition = 20;
+          }
+        });
+
+        yPosition += 5;
+      }
+
+      // Documents Section with styled file type indicators
+      if (selectedDeferral.documents && selectedDeferral.documents.length > 0) {
+        if (yPosition > 230) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        doc.setFontSize(11);
+        doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+        doc.setFont(undefined, 'bold');
+        doc.text('Attached Documents', margin, yPosition);
+        yPosition += 8;
+
+        doc.setFontSize(9);
+        selectedDeferral.documents.forEach((doc_item, index) => {
+          if (index % 2 === 0) {
+            doc.setFillColor(250, 250, 250);
+            doc.rect(margin, yPosition - 3, contentWidth, 10, 'F');
+          }
+
+          const docName = doc_item.name || `Document ${index + 1}`;
+          const fileExt = docName.split('.').pop().toLowerCase();
+          const fileColor = fileExt === 'pdf' ? [255, 77, 79] : fileExt === 'xlsx' || fileExt === 'xls' ? [82, 196, 26] : primaryBlue;
+
+          doc.setFillColor(fileColor[0], fileColor[1], fileColor[2]);
+          doc.circle(margin + 3, yPosition + 2, 2, 'F');
+
+          doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+          doc.setFont(undefined, 'normal');
+          const nameLines = doc.splitTextToSize(docName, contentWidth - 15);
+          doc.text(nameLines[0], margin + 8, yPosition + 3);
+
+          if (doc_item.fileSize) {
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`(${(doc_item.fileSize / 1024).toFixed(2)} KB)`, margin + 120, yPosition + 3);
+          }
+
+          yPosition += 10;
+          doc.setFontSize(9);
+
+          if (yPosition > 250) {
+            doc.addPage();
+            yPosition = 20;
+          }
+        });
+
+        yPosition += 5;
+      }
+
+      // Comments/History Section with professional trail
+      if (selectedDeferral.comments && selectedDeferral.comments.length > 0) {
+        if (yPosition > 220) {
+          doc.addPage();
+          yPosition = 20;
+        }
+
+        doc.setFontSize(11);
+        doc.setTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+        doc.setFont(undefined, 'bold');
+        doc.text('Comment Trail', margin, yPosition);
+        yPosition += 10;
+
+        selectedDeferral.comments.forEach((comment, index) => {
+          const authorName = comment.author?.name || comment.authorName || 'User';
+          const authorRole = comment.author?.role || 'N/A';
+          const commentText = comment.text || comment.comment || '';
+          const commentDate = comment.createdAt ? dayjs(comment.createdAt).format('DD MMM YYYY HH:mm') : '';
+
+          if (index % 2 === 0) {
+            doc.setFillColor(250, 252, 255);
+            const commentLines = doc.splitTextToSize(commentText, contentWidth - 20);
+            doc.rect(margin, yPosition - 3, contentWidth, commentLines.length * 6 + 18, 'F');
+          }
+
+          // Avatar circle
+          doc.setFillColor(primaryBlue[0], primaryBlue[1], primaryBlue[2]);
+          doc.circle(margin + 5, yPosition + 3, 3, 'F');
+          const initials = authorName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(6);
+          doc.setFont(undefined, 'bold');
+          doc.text(initials, margin + 3.5, yPosition + 4);
+
+          // Author and role
+          doc.setFontSize(9);
+          doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+          doc.setFont(undefined, 'bold');
+          doc.text(authorName, margin + 12, yPosition + 3);
+
+          doc.setFontSize(8);
+          doc.setFont(undefined, 'normal');
+          doc.setTextColor(100, 100, 100);
+          doc.text(`(${authorRole})`, margin + 50, yPosition + 3);
+
+          doc.text(commentDate, margin + 130, yPosition + 3);
+
+          yPosition += 10;
+
+          // Comment text
+          doc.setFontSize(9);
+          doc.setTextColor(darkGray[0], darkGray[1], darkGray[2]);
+          const commentLines = doc.splitTextToSize(commentText, contentWidth - 20);
+          commentLines.forEach((line) => {
+            doc.text(line, margin + 12, yPosition);
+            yPosition += 6;
+          });
+
+          yPosition += 8;
+
+          if (yPosition > 240) {
+            doc.addPage();
+            yPosition = 20;
+          }
+        });
+
+        yPosition += 2;
       }
 
       yPosition += 10;
@@ -1782,10 +2089,10 @@ const Deferrals = ({ userId }) => {
           type="primary"
           onClick={downloadDeferralAsPDF}
           loading={actionLoading}
-          icon={<DownloadOutlined />}
-          style={{ marginLeft: "auto" }}
+          icon={<FilePdfOutlined />}
+          style={{ marginLeft: "auto", backgroundColor: "#164679", borderColor: "#164679" }}
         >
-          Download Deferral as PDF
+          Download as PDF
         </Button>,
       ];
     }
@@ -1821,12 +2128,13 @@ const Deferrals = ({ userId }) => {
         </Button>,
         <Button
           key="download"
-          type="default"
+          type="primary"
           onClick={downloadDeferralAsPDF}
           loading={actionLoading}
-          icon={<DownloadOutlined />}
+          icon={<FilePdfOutlined />}
+          style={{ backgroundColor: "#164679", borderColor: "#164679" }}
         >
-          Download
+          Download as PDF
         </Button>,
       ];
     }
@@ -1850,12 +2158,12 @@ const Deferrals = ({ userId }) => {
       // DOWNLOAD — ALWAYS FAR LEFT & ACTIVE
       <Button
         key="download"
-        type="default"
+        type="primary"
         onClick={downloadDeferralAsPDF}
-        icon={<DownloadOutlined />}
-        style={{ marginRight: "auto" }}
+        icon={<FilePdfOutlined />}
+        style={{ marginRight: "auto", backgroundColor: "#164679", borderColor: "#164679" }}
       >
-        Download
+        Download as PDF
       </Button>,
 
       // RETURN FOR REWORK — NEVER GREYED
@@ -1967,27 +2275,25 @@ const Deferrals = ({ userId }) => {
       <div style={{ marginBottom: 12 }}>
         <Tabs activeKey={activeTab} onChange={(k) => setActiveTab(k)}>
           <Tabs.TabPane
-            tab={`Pending Deferrals (${
-              deferrals.filter((d) => {
-                const hasCreatorApproved =
-                  d.creatorApprovalStatus === "approved";
-                const hasCheckerApproved =
-                  d.checkerApprovalStatus === "approved";
-                return hasCreatorApproved && !hasCheckerApproved;
-              }).length
-            })`}
+            tab={`Pending Deferrals (${deferrals.filter((d) => {
+              const hasCreatorApproved =
+                d.creatorApprovalStatus === "approved";
+              const hasCheckerApproved =
+                d.checkerApprovalStatus === "approved";
+              return hasCreatorApproved && !hasCheckerApproved;
+            }).length
+              })`}
             key="pending"
           />
           <Tabs.TabPane
-            tab={`Approved Deferrals (${
-              deferrals.filter((d) => {
-                const hasCreatorApproved =
-                  d.creatorApprovalStatus === "approved";
-                const hasCheckerApproved =
-                  d.checkerApprovalStatus === "approved";
-                return hasCreatorApproved && hasCheckerApproved;
-              }).length
-            })`}
+            tab={`Approved Deferrals (${deferrals.filter((d) => {
+              const hasCreatorApproved =
+                d.creatorApprovalStatus === "approved";
+              const hasCheckerApproved =
+                d.checkerApprovalStatus === "approved";
+              return hasCreatorApproved && hasCheckerApproved;
+            }).length
+              })`}
             key="approved"
           />
           <Tabs.TabPane
@@ -2491,116 +2797,6 @@ const Deferrals = ({ userId }) => {
                   </div>
                 )}
 
-                {/* Show Partially Approved Banner */}
-                {isPartiallyApproved && !isFullyApproved && (
-                  <div
-                    className="approved-status"
-                    style={{
-                      backgroundColor: `${PRIMARY_BLUE}15`,
-                      borderColor: `${PRIMARY_BLUE}40`,
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        marginBottom: 8,
-                      }}
-                    >
-                      <LoadingOutlined
-                        style={{ color: PRIMARY_BLUE, fontSize: 24 }}
-                      />
-                      <div>
-                        <h3
-                          style={{
-                            margin: 0,
-                            color: PRIMARY_BLUE,
-                            fontWeight: 700,
-                          }}
-                        >
-                          {allApproversApprovedLocal &&
-                          (!hasCreatorApproved || !hasCheckerApproved)
-                            ? "All Approvers Approved • Awaiting Creator/Checker"
-                            : "Deferral Partially Approved"}
-                        </h3>
-                        <p style={{ margin: 4, color: "#666", fontSize: 14 }}>
-                          {allApproversApprovedLocal &&
-                          (!hasCreatorApproved || !hasCheckerApproved)
-                            ? "All approvers have approved. Now awaiting approval from Creator and/or Checker."
-                            : "Awaiting approvals from remaining parties"}
-                        </p>
-                      </div>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        gap: 16,
-                        fontSize: 14,
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      <div>
-                        <span
-                          style={{ fontWeight: 600, color: SECONDARY_PURPLE }}
-                        >
-                          Creator:{" "}
-                        </span>
-                        <span
-                          style={{
-                            color: hasCreatorApproved
-                              ? SUCCESS_GREEN
-                              : WARNING_ORANGE,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {hasCreatorApproved ? "✓ Approved" : "Pending"}
-                          {selectedDeferral.creatorApprovalDate &&
-                            ` • ${dayjs(selectedDeferral.creatorApprovalDate).format("DD MMM YYYY")}`}
-                        </span>
-                      </div>
-                      <div>
-                        <span
-                          style={{ fontWeight: 600, color: SECONDARY_PURPLE }}
-                        >
-                          Checker:{" "}
-                        </span>
-                        <span
-                          style={{
-                            color: hasCheckerApproved
-                              ? SUCCESS_GREEN
-                              : WARNING_ORANGE,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {hasCheckerApproved ? "✓ Approved" : "Pending"}
-                          {selectedDeferral.checkerApprovalDate &&
-                            ` • ${dayjs(selectedDeferral.checkerApprovalDate).format("DD MMM YYYY")}`}
-                        </span>
-                      </div>
-                      <div>
-                        <span
-                          style={{ fontWeight: 600, color: SECONDARY_PURPLE }}
-                        >
-                          Approvers:{" "}
-                        </span>
-                        <span
-                          style={{
-                            color: allApproversApprovedLocal
-                              ? SUCCESS_GREEN
-                              : WARNING_ORANGE,
-                            fontWeight: 500,
-                          }}
-                        >
-                          {allApproversApprovedLocal
-                            ? "✓ All Approved"
-                            : "Partially Approved"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* Show Rejected/Returned Banner */}
                 {(isRejected || isReturned) && (
                   <div
@@ -2822,7 +3018,7 @@ const Deferrals = ({ userId }) => {
                       ) : (
                         <div style={{ fontWeight: 500 }}>
                           {(selectedDeferral.status || "").toLowerCase() ===
-                          "deferral_requested"
+                            "deferral_requested"
                             ? "Pending"
                             : selectedDeferral.status || ""}
                         </div>
@@ -3020,18 +3216,9 @@ const Deferrals = ({ userId }) => {
                           gap: 12,
                         }}
                       >
-                        <div>
-                          {(function () {
-                            const amt = Number(
-                              selectedDeferral.loanAmount || 0,
-                            );
-                            if (!amt) return "Not specified";
-                            return `KSh ${amt.toLocaleString()}`;
-                          })()}
-                        </div>
                         {(function () {
                           const amt = Number(selectedDeferral.loanAmount || 0);
-                          if (!amt) return null;
+                          if (!amt) return "Not specified";
                           const isAbove75 =
                             amt > 75 && amt <= 1000
                               ? true
@@ -3075,18 +3262,18 @@ const Deferrals = ({ userId }) => {
                         style={{
                           color:
                             selectedDeferral.nextDueDate ||
-                            selectedDeferral.nextDocumentDueDate
+                              selectedDeferral.nextDocumentDueDate
                               ? dayjs(
-                                  selectedDeferral.nextDueDate ||
-                                    selectedDeferral.nextDocumentDueDate,
-                                ).isBefore(dayjs())
+                                selectedDeferral.nextDueDate ||
+                                selectedDeferral.nextDocumentDueDate,
+                              ).isBefore(dayjs())
                                 ? ERROR_RED
                                 : SUCCESS_GREEN
                               : PRIMARY_BLUE,
                         }}
                       >
                         {selectedDeferral.nextDueDate ||
-                        selectedDeferral.nextDocumentDueDate
+                          selectedDeferral.nextDocumentDueDate
                           ? `${dayjs(selectedDeferral.nextDueDate || selectedDeferral.nextDocumentDueDate).format("DD MMM YYYY")}`
                           : "Not calculated"}
                       </div>
@@ -3098,15 +3285,15 @@ const Deferrals = ({ userId }) => {
                         style={{
                           color:
                             selectedDeferral.slaExpiry &&
-                            dayjs(selectedDeferral.slaExpiry).isBefore(dayjs())
+                              dayjs(selectedDeferral.slaExpiry).isBefore(dayjs())
                               ? ERROR_RED
                               : PRIMARY_BLUE,
                         }}
                       >
                         {selectedDeferral.slaExpiry
                           ? dayjs(selectedDeferral.slaExpiry).format(
-                              "DD MMM YYYY HH:mm",
-                            )
+                            "DD MMM YYYY HH:mm",
+                          )
                           : "Not set"}
                       </div>
                     </Descriptions.Item>
@@ -3117,7 +3304,7 @@ const Deferrals = ({ userId }) => {
                         <Text strong style={{ color: PRIMARY_BLUE }}>
                           {dayjs(
                             selectedDeferral.createdAt ||
-                              selectedDeferral.requestedDate,
+                            selectedDeferral.requestedDate,
                           ).format("DD MMM YYYY")}
                         </Text>
                         <Text
@@ -3126,7 +3313,7 @@ const Deferrals = ({ userId }) => {
                         >
                           {dayjs(
                             selectedDeferral.createdAt ||
-                              selectedDeferral.requestedDate,
+                            selectedDeferral.requestedDate,
                           ).format("HH:mm")}
                         </Text>
                       </div>
@@ -3700,13 +3887,13 @@ const Deferrals = ({ userId }) => {
                         const approverName =
                           typeof approver === "object"
                             ? approver.name ||
-                              approver.user?.name ||
-                              approver.userId?.name ||
-                              approver.email ||
-                              approver.role ||
-                              String(approver)
+                            approver.user?.name ||
+                            approver.userId?.name ||
+                            approver.email ||
+                            approver.role ||
+                            String(approver)
                             : typeof approver === "string" &&
-                                approver.includes("@")
+                              approver.includes("@")
                               ? approver.split("@")[0]
                               : approver;
 
@@ -3957,10 +4144,10 @@ const Deferrals = ({ userId }) => {
                               typeof currentCandidate === "object" &&
                               currentCandidate.email) ||
                             (typeof approver === "string" &&
-                            approver.includes("@")
+                              approver.includes("@")
                               ? approver
                               : typeof currentCandidate === "string" &&
-                                  currentCandidate.includes("@")
+                                currentCandidate.includes("@")
                                 ? currentCandidate
                                 : null);
                           return (
@@ -4001,11 +4188,11 @@ const Deferrals = ({ userId }) => {
                                       ? approver.split("@")[0]
                                       : approver
                                     : approver.name ||
-                                      approver.user?.name ||
-                                      approver.userId?.name ||
-                                      approver.email ||
-                                      approver.role ||
-                                      String(approver)}
+                                    approver.user?.name ||
+                                    approver.userId?.name ||
+                                    approver.email ||
+                                    approver.role ||
+                                    String(approver)}
                                 </Text>
                                 {isCurrentApprover && (
                                   <div
@@ -4096,191 +4283,46 @@ const Deferrals = ({ userId }) => {
                   )}
                 </Card>
 
-                {/* Comments Input Section */}
-                <Card size="small" style={{ marginBottom: 24, marginTop: 24 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: 16,
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 4,
-                        height: 20,
-                        backgroundColor: ACCENT_LIME,
-                        marginRight: 12,
-                        borderRadius: 2,
-                      }}
-                    />
-                    <h4 style={{ color: PRIMARY_BLUE, margin: 0 }}>Comments</h4>
-                  </div>
-
-                  <TextArea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    rows={4}
-                    placeholder="Add any notes or comments for the deferral (optional)"
-                    maxLength={500}
-                    showCount
-                  />
-
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "flex-end",
-                      marginTop: 12,
-                      gap: 8,
-                    }}
-                  >
-                    <Button
-                      type="default"
-                      onClick={() => setNewComment("")}
-                      disabled={postingComment}
-                    >
-                      Clear
-                    </Button>
-                    <Button
-                      type="primary"
-                      onClick={handlePostComment}
-                      loading={postingComment}
-                      disabled={!newComment.trim()}
-                    >
-                      Post Comment
-                    </Button>
-                  </div>
-                </Card>
-
                 <div style={{ marginTop: 24 }}>
-                  <h4 style={{ color: PRIMARY_BLUE, marginBottom: 16 }}>
-                    Comment Trail & History
-                  </h4>
-                  <div className="max-h-52 overflow-y-auto">
-                    <List
-                      dataSource={history}
-                      itemLayout="horizontal"
-                      renderItem={(item) => (
-                        <List.Item>
-                          <List.Item.Meta
-                            avatar={
-                              <Avatar
-                                icon={<UserOutlined />}
-                                style={{
-                                  backgroundColor:
-                                    item.type === "approval"
-                                      ? SUCCESS_GREEN
-                                      : item.type === "rejection"
-                                        ? ERROR_RED
-                                        : item.type === "return"
-                                          ? WARNING_ORANGE
-                                          : item.type === "request"
-                                            ? PRIMARY_BLUE
-                                            : "#bfbfbf",
-                                }}
-                              />
-                            }
-                            title={
-                              <div className="flex justify-between">
-                                <div>
-                                  <b>{item.user || "System"}</b>
-                                  {item.type === "approval" && (
-                                    <Tag
-                                      icon={<CheckCircleOutlined />}
-                                      color="success"
-                                      style={{
-                                        marginLeft: 8,
-                                        fontSize: 10,
-                                        padding: "0 4px",
-                                      }}
-                                    >
-                                      Approved
-                                    </Tag>
-                                  )}
-                                  {item.type === "rejection" && (
-                                    <Tag
-                                      icon={<CloseCircleOutlined />}
-                                      color="error"
-                                      style={{
-                                        marginLeft: 8,
-                                        fontSize: 10,
-                                        padding: "0 4px",
-                                      }}
-                                    >
-                                      Rejected
-                                    </Tag>
-                                  )}
-                                  {item.type === "return" && (
-                                    <Tag
-                                      icon={<ReloadOutlined />}
-                                      color="warning"
-                                      style={{
-                                        marginLeft: 8,
-                                        fontSize: 10,
-                                        padding: "0 4px",
-                                      }}
-                                    >
-                                      Returned
-                                    </Tag>
-                                  )}
-                                  {item.type === "request" && (
-                                    <Tag
-                                      icon={<UserOutlined />}
-                                      color="blue"
-                                      style={{
-                                        marginLeft: 8,
-                                        fontSize: 10,
-                                        padding: "0 4px",
-                                      }}
-                                    >
-                                      Requested
-                                    </Tag>
-                                  )}
-                                </div>
-                                <span className="text-xs text-gray-500">
-                                  {dayjs(item.date).format("DD MMM YYYY HH:mm")}
-                                </span>
-                              </div>
-                            }
-                            description={
-                              <div>
-                                {item.comment ? (
-                                  <div style={{ marginTop: 4 }}>
-                                    <Text>{item.comment}</Text>
-                                  </div>
-                                ) : (
-                                  <Text
-                                    type="secondary"
-                                    style={{ fontStyle: "italic" }}
-                                  >
-                                    No comment provided
-                                  </Text>
-                                )}
-                                {item.type === "approval" &&
-                                  item.originalComment &&
-                                  item.originalComment.includes(
-                                    "Approved by",
-                                  ) && (
-                                    <div
-                                      style={{
-                                        marginTop: 4,
-                                        fontSize: 12,
-                                        color: "#666",
-                                      }}
-                                    >
-                                      <Text type="secondary">
-                                        {item.originalComment.split(":")[0]}{" "}
-                                        {/* Shows "Approved by Eric" */}
-                                      </Text>
-                                    </div>
-                                  )}
-                              </div>
-                            }
-                          />
-                        </List.Item>
-                      )}
-                    />
-                  </div>
+                  <h4 style={{ color: PRIMARY_BLUE, marginBottom: 16 }}>Comment Trail & History</h4>
+                  {(function renderHistory() {
+                    const events = [];
+                    const requester = selectedDeferral.requestor?.name || selectedDeferral.requestedBy?.name || selectedDeferral.requestedBy?.fullName || selectedDeferral.rmName || selectedDeferral.rmRequestedBy?.name || selectedDeferral.createdBy?.name || selectedDeferral.createdByName || 'RM';
+                    const requesterRole = selectedDeferral.requestor?.role || selectedDeferral.requestedBy?.role || 'RM';
+                    const requestDate = selectedDeferral.requestedDate || selectedDeferral.createdAt || selectedDeferral.requestedAt;
+                    const requestComment = selectedDeferral.rmReason || 'Deferral request submitted';
+                    events.push({ user: requester, userRole: requesterRole, date: requestDate, comment: requestComment });
+
+                    if (selectedDeferral.comments && Array.isArray(selectedDeferral.comments) && selectedDeferral.comments.length > 0) {
+                      selectedDeferral.comments.forEach(c => {
+                        const commentAuthorName = c.author?.name || c.authorName || c.userName || c.author?.email || 'RM';
+                        const commentAuthorRole = c.author?.role || c.authorRole || c.role || 'RM';
+                        events.push({
+                          user: commentAuthorName,
+                          userRole: commentAuthorRole,
+                          date: c.createdAt,
+                          comment: c.text || ''
+                        });
+                      });
+                    }
+
+                    if (selectedDeferral.history && Array.isArray(selectedDeferral.history) && selectedDeferral.history.length > 0) {
+                      selectedDeferral.history.forEach((h) => {
+                        if (h.action === 'moved') return;
+                        const userName = h.user?.name || h.userName || h.user || 'System';
+                        const userRole = h.user?.role || h.userRole || h.role || 'System';
+                        events.push({
+                          user: userName,
+                          userRole: userRole,
+                          date: h.date || h.createdAt || h.timestamp || h.entryDate,
+                          comment: h.comment || h.notes || h.message || ''
+                        });
+                      });
+                    }
+
+                    const sorted = events.sort((a, b) => (new Date(a.date || 0)) - (new Date(b.date || 0)));
+                    return <CommentTrail history={sorted} isLoading={false} />;
+                  })()}
                 </div>
               </div>
             );

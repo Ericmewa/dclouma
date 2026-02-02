@@ -96,7 +96,7 @@ export default function ApproverDetailPage() {
                   const candidate = fn(previewB64);
                   parsed = JSON.parse(candidate);
                   break;
-                // eslint-disable-next-line no-unused-vars
+                  // eslint-disable-next-line no-unused-vars
                 } catch (err) {
                   // continue
                 }
@@ -262,7 +262,7 @@ export default function ApproverDetailPage() {
         </Row>
       </Card>
 
-      <Row gutter={[24,24]}>
+      <Row gutter={[24, 24]}>
         <Col span={16}>
           <Card style={{ marginBottom: 16 }} title="Customer & Deferral Info">
             <Descriptions column={2} bordered>
@@ -280,7 +280,7 @@ export default function ApproverDetailPage() {
 
           <Card style={{ marginBottom: 16 }} title={`Selected Documents (${deferralData.selectedDocuments?.length || 0})`}>
             {deferralData.selectedDocuments && deferralData.selectedDocuments.length > 0 ? (
-              <Table dataSource={deferralData.selectedDocuments} rowKey={(r,i) => i} pagination={false} columns={[{ title: 'Name', dataIndex: 'name' }, { title: 'Category', dataIndex: 'category', render: c => <Tag>{c}</Tag> }]} />
+              <Table dataSource={deferralData.selectedDocuments} rowKey={(r, i) => i} pagination={false} columns={[{ title: 'Name', dataIndex: 'name' }, { title: 'Category', dataIndex: 'category', render: c => <Tag>{c}</Tag> }]} />
             ) : (
               <div style={{ textAlign: 'center', padding: 18 }}>No documents selected</div>
             )}
@@ -359,15 +359,15 @@ export default function ApproverDetailPage() {
         </Col>
       </Row>
 
-      <Modal title="Approve Deferral" open={approveModalVisible} onCancel={() => setApproveModalVisible(false)} footer={[<Button key="cancel" onClick={() => setApproveModalVisible(false)}>Cancel</Button>, <Button key="ok" type="primary" loading={isSubmitting} onClick={handleApprove}>Confirm</Button>] }>
+      <Modal title="Approve Deferral" open={approveModalVisible} onCancel={() => setApproveModalVisible(false)} footer={[<Button key="cancel" onClick={() => setApproveModalVisible(false)}>Cancel</Button>, <Button key="ok" type="primary" loading={isSubmitting} onClick={handleApprove}>Confirm</Button>]}>
         <TextArea rows={4} value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Optional comment" />
       </Modal>
 
-      <Modal title="Reject Deferral" open={rejectModalVisible} onCancel={() => setRejectModalVisible(false)} footer={[<Button key="cancel" onClick={() => setRejectModalVisible(false)}>Cancel</Button>, <Button key="reject" danger loading={isSubmitting} onClick={handleReject}>Reject</Button>] }>
+      <Modal title="Reject Deferral" open={rejectModalVisible} onCancel={() => setRejectModalVisible(false)} footer={[<Button key="cancel" onClick={() => setRejectModalVisible(false)}>Cancel</Button>, <Button key="reject" danger loading={isSubmitting} onClick={handleReject}>Reject</Button>]}>
         <TextArea rows={4} value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Reason for rejection" />
       </Modal>
 
-      <Modal title="Add Comment" open={commentModalVisible} onCancel={() => setCommentModalVisible(false)} footer={[<Button key="cancel" onClick={() => setCommentModalVisible(false)}>Cancel</Button>, <Button key="add" type="primary" onClick={async () => { if (!newComment.trim()) return message.warning('Enter a comment'); const entry = { action: 'Comment', user: 'Approver', date: new Date().toISOString(), comment: newComment }; const updated = { ...deferralData, history: [...(deferralData.history||[]), entry] }; await deferralService.updateDeferral(updated); setDeferralData(updated); setNewComment(''); setCommentModalVisible(false); message.success('Comment added'); }}>Add</Button>] }>
+      <Modal title="Add Comment" open={commentModalVisible} onCancel={() => setCommentModalVisible(false)} footer={[<Button key="cancel" onClick={() => setCommentModalVisible(false)}>Cancel</Button>, <Button key="add" type="primary" onClick={async () => { if (!newComment.trim()) return message.warning('Enter a comment'); const entry = { action: 'Comment', user: 'Approver', date: new Date().toISOString(), comment: newComment }; const updated = { ...deferralData, history: [...(deferralData.history || []), entry] }; await deferralService.updateDeferral(updated); setDeferralData(updated); setNewComment(''); setCommentModalVisible(false); message.success('Comment added'); }}>Add</Button>]}>
         <TextArea rows={4} value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="Enter comment" />
       </Modal>
     </div>

@@ -1,8 +1,9 @@
+// 
+
 import React, { useState, useMemo } from "react";
-import { Table, Tag, Button, Input, Space } from "antd";
+import { Table, Tag, Button, Input } from "antd";
 import {
   SearchOutlined,
-  EditOutlined,
   PoweroffOutlined,
 } from "@ant-design/icons";
 
@@ -11,19 +12,24 @@ import {
   getNextRoleLabel,
 } from "../../components/admin/RoleUtils";
 
-const UserTable = ({ users, onToggleActive, onReassign }) => {
+const UserTable = ({ users, onToggleActive }) => {
   const [searchText, setSearchText] = useState("");
 
-  const filteredUsers = useMemo(() => {
-    if (!searchText.trim()) return users;
+  // Filter to show only active users
+  const activeUsers = useMemo(() => {
+    return users.filter((u) => u.active);
+  }, [users]);
 
-    return users.filter((u) => {
+  const filteredUsers = useMemo(() => {
+    if (!searchText.trim()) return activeUsers;
+
+    return activeUsers.filter((u) => {
       const name = (u.name || "").toLowerCase();
       const email = (u.email || "").toLowerCase();
       const query = searchText.toLowerCase();
       return name.includes(query) || email.includes(query);
     });
-  }, [users, searchText]);
+  }, [activeUsers, searchText]);
 
   const columns = [
     {
@@ -92,27 +98,15 @@ const UserTable = ({ users, onToggleActive, onReassign }) => {
     {
       title: <span className="text-gray-700 dark:text-gray-300">Actions</span>,
       render: (_, record) => (
-        <Space>
-          <Button
-            size="small"
-            type="default"
-            icon={<EditOutlined />}
-            onClick={() => onReassign && onReassign(record._id)}
-            className="bg-blue-500 hover:bg-blue-600 text-white border-none"
-          >
-            Reassign
-          </Button>
-
-          <Button
-            size="small"
-            danger={!record.active}
-            icon={<PoweroffOutlined />}
-            onClick={() => onToggleActive(record._id)}
-            className="dark:bg-gray-700 dark:text-gray-200"
-          >
-            {record.active ? "Deactivate" : "Activate"}
-          </Button>
-        </Space>
+        <Button
+          size="small"
+          danger
+          icon={<PoweroffOutlined />}
+          onClick={() => onToggleActive(record._id)}
+          className="dark:bg-gray-700 dark:text-gray-200"
+        >
+          Deactivate
+        </Button>
       ),
     },
   ];
@@ -145,3 +139,4 @@ const UserTable = ({ users, onToggleActive, onReassign }) => {
 };
 
 export default UserTable;
+

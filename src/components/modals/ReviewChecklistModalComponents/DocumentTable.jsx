@@ -103,7 +103,7 @@ const DocumentTable = ({
         const statusColor = getStatusColor(status);
         const statusLabel =
           status === "deferred" && record.deferralNo
-            ? `Deferred (${record.deferralNo})`
+            ? "Deferred"
             : status;
 
         return (

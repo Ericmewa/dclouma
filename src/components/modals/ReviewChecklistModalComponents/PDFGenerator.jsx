@@ -5,12 +5,12 @@ import { FilePdfOutlined } from "@ant-design/icons";
 import { PRIMARY_BLUE } from '../../../utils/constants';
 import usePDFGenerator from '../../../hooks/usePDFGenerator';
 
-const PDFGenerator = ({ 
-  checklist, 
-  docs, 
-  supportingDocs, 
-  creatorComment, 
-  comments 
+const PDFGenerator = ({
+  checklist,
+  docs,
+  supportingDocs,
+  creatorComment,
+  comments
 }) => {
   const { generatePDF, isGenerating } = usePDFGenerator();
 
@@ -30,7 +30,7 @@ const PDFGenerator = ({
 
   return (
     <Button
-      icon={<FilePdfOutlined />} // Updated icon
+      icon={<FilePdfOutlined />}
       loading={isGenerating}
       onClick={handleGeneratePDF}
       style={{
@@ -43,7 +43,7 @@ const PDFGenerator = ({
       }}
     >
       Download PDF
-    </Button>   
+    </Button>
   );
 };
 

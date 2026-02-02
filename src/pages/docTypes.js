@@ -6,7 +6,7 @@ export const loanTypes = [
   "Stock Loan DCL",
   "Equity Release Loan",
   "Shamba Loan",
-  "Multiple Purpose Loan DCL",
+  // "Multiple Purpose Loan DCL",
   "Multiple Loan Type",
 ];
 

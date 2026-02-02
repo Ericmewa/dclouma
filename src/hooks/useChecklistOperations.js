@@ -1,150 +1,68 @@
-import { useState } from "react";
-import { message } from "antd";
+import { useState } from 'react';
+import { message } from 'antd';
 import {
   useSubmitChecklistToRMMutation,
   useUpdateChecklistStatusMutation,
   useSaveChecklistDraftMutation,
 } from "../../src/api/checklistApi";
-import { API_BASE_URL } from "../utils/constants";
+import { API_BASE_URL } from '../utils/constants';
 
-export const useChecklistOperations = (
-  checklist,
-  docs,
-  supportingDocs,
-  creatorComment,
-) => {
-  const [submitRmChecklist, { isLoading: isSubmittingToRM }] =
-    useSubmitChecklistToRMMutation();
-  const [updateChecklistStatus, { isLoading: isCheckerSubmitting }] =
-    useUpdateChecklistStatusMutation();
-  const [saveDraft, { isLoading: isSavingDraft }] =
-    useSaveChecklistDraftMutation();
+export const useChecklistOperations = (checklist, docs, supportingDocs, creatorComment, currentUser) => {
+  const [submitRmChecklist, { isLoading: isSubmittingToRM }] = useSubmitChecklistToRMMutation();
+  const [updateChecklistStatus, { isLoading: isCheckerSubmitting }] = useUpdateChecklistStatusMutation();
+  const [saveDraft, { isLoading: isSavingDraft }] = useSaveChecklistDraftMutation();
   const [uploadingSupportingDoc, setUploadingSupportingDoc] = useState(false);
-
-  // const submitToRM = async () => {
-  //   try {
-  //     if (!checklist?._id) throw new Error("Checklist ID missing");
-
-  //     const nestedDocuments = docs.reduce((acc, doc) => {
-  //       let categoryGroup = acc.find((c) => c.category === doc.category);
-  //       if (!categoryGroup) {
-  //         categoryGroup = { category: doc.category, docList: [] };
-  //         acc.push(categoryGroup);
-  //       }
-  //       categoryGroup.docList.push({
-  //         _id: doc._id,
-  //         name: doc.name,
-  //         category: doc.category,
-  //         status: doc.status,
-  //         displayStatus:
-  //           doc.status === "deferred" && doc.deferralNo
-  //             ? `Deferred (${doc.deferralNo})`
-  //             : doc.status,
-  //         deferralNo: doc.deferralNo,
-  //         action: doc.action,
-  //         comment: doc.comment,
-  //         fileUrl: doc.fileUrl,
-  //         deferralReason: doc.deferralReason,
-  //         expiryDate: doc.expiryDate || null,
-  //       });
-
-  //       return acc;
-  //     }, []);
-
-  //     const payload = {
-  //       creatorComment,
-  //       documents: nestedDocuments,
-  //       supportingDocs: supportingDocs,
-  //     };
-  //     await submitRmChecklist({ id: checklist._id, body: payload }).unwrap();
-  //     message.success("Checklist submitted to RM!");
-  //   } catch (err) {
-  //     console.error(err);
-  //     message.error(err?.data?.error || "Failed to submit checklist to RM");
-  //     throw err;
-  //   }
-  // };
 
   const submitToRM = async () => {
     try {
-      console.log("🔄 Submitting to RM...");
-      console.log("Checklist ID:", checklist?._id);
-      console.log("Documents to submit:", docs);
+      if (!checklist?._id) {
+        throw new Error("Checklist ID missing");
+      }
 
-      // Group documents by category (backend expects this format)
-      const documentsByCategory = {};
-
-      docs.forEach((doc) => {
-        const category = doc.category || "Uncategorized";
-        if (!documentsByCategory[category]) {
-          documentsByCategory[category] = {
-            category: category,
-            docList: [],
-          };
+      const nestedDocuments = docs.reduce((acc, doc) => {
+        let categoryGroup = acc.find((c) => c.category === doc.category);
+        if (!categoryGroup) {
+          categoryGroup = { category: doc.category, docList: [] };
+          acc.push(categoryGroup);
         }
-
-        documentsByCategory[category].docList.push({
-          _id: doc._id || `new_${Date.now()}_${Math.random()}`,
+        categoryGroup.docList.push({
+          _id: doc._id,
           name: doc.name,
           category: doc.category,
-          status: doc.status || doc.action || "pendingrm",
-          action: doc.action || doc.status || "pendingrm",
-          comment: doc.comment || "",
-          fileUrl: doc.fileUrl || null,
-          deferralNo: doc.deferralNo || null,
-          deferralNumber: doc.deferralNo || null,
+          status: doc.status,
+          displayStatus: doc.status === "deferred" && doc.deferralNo
+            ? `Deferred (${doc.deferralNo})`
+            : doc.status,
+          deferralNo: doc.deferralNo,
+          action: doc.action,
+          comment: doc.comment,
+          fileUrl: doc.fileUrl,
+          deferralReason: doc.deferralReason,
           expiryDate: doc.expiryDate || null,
-          checkerStatus:
-            doc.checkerStatus || doc.finalCheckerStatus || "pending",
-          // RM will fill this later
-          rmStatus: null,
-          // Include upload data if exists
-          ...(doc.uploadData && { uploadData: doc.uploadData }),
         });
-      });
 
-      const formattedDocuments = Object.values(documentsByCategory);
+        return acc;
+      }, []);
 
       const payload = {
-        documents: formattedDocuments,
-        creatorComment: creatorComment || "",
+        creatorComment,
+        documents: nestedDocuments,
+        supportingDocs: supportingDocs,
       };
 
-      console.log("📤 Payload to backend:", {
-        documentCategories: formattedDocuments.length,
-        totalDocuments: formattedDocuments.reduce(
-          (sum, cat) => sum + cat.docList.length,
-          0,
-        ),
-        categories: formattedDocuments.map((c) => c.category),
-      });
-
-      const result = await submitRmChecklist({
-        id: checklist._id,
-        body: payload,
-      }).unwrap();
-
-      console.log("✅ Submit success:", result);
-
-      message.success("Submitted to RM successfully!");
-      onclose();
-    } catch (error) {
-      console.error("❌ Submit to RM error:", error);
-
-      if (error?.data?.error) {
-        message.error(error.data.error);
-      } else if (error?.data?.message) {
-        message.error(error.data.message);
-      } else if (error?.message) {
-        message.error(error.message);
-      } else {
-        message.error("Failed to submit to RM");
-      }
+      await submitRmChecklist({ id: checklist._id, body: payload }).unwrap();
+      message.success("Checklist submitted to RM!");
+    } catch (err) {
+      console.error("Submit to RM error:", err);
+      message.error(err?.data?.error || err?.message || "Failed to submit checklist to RM");
+      throw err;
     }
   };
 
   const submitToCheckers = async () => {
-    if (!checklist?.dclNo) throw new Error("DCL No missing.");
+    if (!checklist?.dclNo) {
+      throw new Error("DCL No missing.");
+    }
 
     try {
       message.loading({
@@ -165,11 +83,10 @@ export const useChecklistOperations = (
           expiryDate: doc.expiryDate || null,
           deferralNo: doc.deferralNo || null,
         })),
-        creatorComment: creatorComment, // Added creatorComment
-        supportingDocs: supportingDocs,
+        supportingDocs,
       };
 
-      const result = await updateChecklistStatus(payload).unwrap();
+      await updateChecklistStatus(payload).unwrap();
 
       message.success({
         content: "Checklist submitted to Co-Checker!",
@@ -179,9 +96,9 @@ export const useChecklistOperations = (
     } catch (err) {
       console.error("Submit Error Details:", err);
       message.error({
-        content:
-          err?.data?.message ||
+        content: err?.data?.message ||
           err?.data?.error ||
+          err?.message ||
           "Failed to submit checklist.",
         key: "checkerSubmit",
       });
@@ -191,10 +108,15 @@ export const useChecklistOperations = (
 
   const saveDraftHandler = async () => {
     try {
+      if (!checklist?._id) {
+        throw new Error("Checklist ID missing");
+      }
+
       message.loading({
         content: "Saving draft...",
         key: "saveDraft",
       });
+
       const payload = {
         checklistId: checklist._id,
         draftData: {
@@ -213,7 +135,9 @@ export const useChecklistOperations = (
           supportingDocs,
         },
       };
+
       await saveDraft(payload).unwrap();
+
       message.success({
         content: "Draft saved successfully!",
         key: "saveDraft",
@@ -222,7 +146,7 @@ export const useChecklistOperations = (
     } catch (error) {
       console.error("Save draft error:", error);
       message.error({
-        content: "Failed to save draft",
+        content: error?.data?.message || "Failed to save draft",
         key: "saveDraft",
       });
       throw error;
@@ -233,12 +157,21 @@ export const useChecklistOperations = (
     try {
       setUploadingSupportingDoc(true);
 
+      if (!checklist?._id) {
+        throw new Error("Checklist ID missing");
+      }
+
+      const userName = currentUser?.name || currentUser?.username || 'Current User';
+      const userId = currentUser?._id || currentUser?.id;
+
       const formData = new FormData();
       formData.append("file", file);
       formData.append("checklistId", checklist._id);
       formData.append("documentId", `support_${Date.now()}`);
       formData.append("documentName", file.name);
       formData.append("category", "Supporting Documents");
+      formData.append("uploadedBy", userName);
+      formData.append("uploadedById", userId);
 
       const response = await fetch(`${API_BASE_URL}/api/uploads`, {
         method: "POST",
@@ -246,28 +179,41 @@ export const useChecklistOperations = (
       });
 
       if (!response.ok) {
-        throw new Error("Upload failed");
+        const errorText = await response.text();
+        throw new Error(`Upload failed: ${response.status} ${errorText}`);
       }
 
       const result = await response.json();
 
-      if (result.success) {
-        const newSupportingDoc = {
-          id: result.data._id || Date.now().toString(),
-          name: file.name,
-          fileUrl: `${API_BASE_URL}${result.data.fileUrl}`,
-          uploadData: result.data,
-          uploadedAt: new Date().toISOString(),
-          category: "Supporting Documents",
-          isSupporting: true,
-        };
-
-        // Return the new document to be added to state
-        return newSupportingDoc;
+      if (!result.success) {
+        throw new Error(result.message || "Upload failed");
       }
+
+      const newSupportingDoc = {
+        id: result.data._id || Date.now().toString(),
+        name: file.name,
+        fileUrl: result.data.fileUrl.startsWith('http')
+          ? result.data.fileUrl
+          : `${API_BASE_URL}${result.data.fileUrl}`,
+        uploadData: {
+          ...result.data,
+          uploadedBy: result.data.uploadedBy || userName,
+          uploadedById: result.data.uploadedById || userId,
+          uploadedAt: result.data.createdAt || new Date().toISOString(),
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          status: 'supporting'
+        },
+        uploadedAt: new Date().toISOString(),
+        category: "Supporting Documents",
+        isSupporting: true,
+      };
+
+      return newSupportingDoc;
     } catch (error) {
       console.error("Upload error:", error);
-      message.error("Upload failed: " + error.message);
+      message.error(`Upload failed: ${error.message}`);
       throw error;
     } finally {
       setUploadingSupportingDoc(false);

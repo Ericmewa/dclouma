@@ -9,9 +9,9 @@ export default function RejectedDeferralsTable({ filters }) {
     !filters.searchText
       ? true
       : d.checklistId?.dclNo?.includes(filters.searchText) ||
-        d.checklistId?.customerName
-          ?.toLowerCase()
-          .includes(filters.searchText.toLowerCase())
+      d.checklistId?.customerName
+        ?.toLowerCase()
+        .includes(filters.searchText.toLowerCase())
   );
 
   if (isLoading) return <Spin />;

@@ -1,4 +1,3 @@
-
 const API_BASE = import.meta.env.VITE_API_URL + "/api/deferrals";
 
 function getAuthHeaders(token) {
@@ -163,6 +162,19 @@ export default {
       body: JSON.stringify({ text }),
     });
     if (!res.ok) throw new Error("Failed to add comment");
+    return res.json();
+  },
+
+  sendReminder: async (id, token, payload = {}) => {
+    const res = await fetch(`${API_BASE}/${id}/reminder`, {
+      method: "POST",
+      headers: getAuthHeaders(token),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || "Failed to send reminder");
+    }
     return res.json();
   },
 

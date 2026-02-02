@@ -1,5 +1,5 @@
-import React, { useState, useEffect} from "react";
-import { Modal, Button, Tag ,Input} from "antd";
+import React, { useState, useEffect } from "react";
+import { Modal, Button, Tag, Input } from "antd";
 import { FilePdfOutlined, LeftOutlined } from "@ant-design/icons";
 import ActionButtons from "./ActionButtons";
 import DocumentSidebar from "./DocumentSidebar";
@@ -26,15 +26,15 @@ const ReviewChecklistModal = ({ checklist, open, onClose, readOnly = false }) =>
   const [supportingDocs, _] = useState([]);
   const [creatorComment, setCreatorComment] = useState("");
   const [showDocumentSidebar, setShowDocumentSidebar] = useState(false);
-  
+
   // Hooks
   const documentStats = useDocumentStats(docs);
 
 
-    const { data: comments, isLoading: commentsLoading } =
+  const { data: comments, isLoading: commentsLoading } =
     useGetChecklistCommentsQuery(checklist?._id, { skip: !checklist?._id });
 
-      const isActionDisabled = readOnly || !["pending", "co_creator_review"].includes(
+  const isActionDisabled = readOnly || !["pending", "co_creator_review"].includes(
     checklist?.status?.toLowerCase(),
   );
 
@@ -58,11 +58,11 @@ const ReviewChecklistModal = ({ checklist, open, onClose, readOnly = false }) =>
     saveDraft,
   } = useChecklistOperations(checklist, docs, supportingDocs, creatorComment);
 
-//   const isActionDisabled = readOnly || !["pending", "co_creator_review"].includes(
-//     checklist?.status?.toLowerCase(),
-//   );
+  //   const isActionDisabled = readOnly || !["pending", "co_creator_review"].includes(
+  //     checklist?.status?.toLowerCase(),
+  //   );
 
- 
+
 
 
   useEffect(() => {
@@ -121,6 +121,7 @@ const ReviewChecklistModal = ({ checklist, open, onClose, readOnly = false }) =>
             onSubmitToCheckers={submitToCheckers}
             onUploadSupportingDoc={uploadSupportingDoc}
             onClose={onClose}
+            comments={comments}
           />
         }
       >
@@ -163,7 +164,7 @@ const ReviewChecklistModal = ({ checklist, open, onClose, readOnly = false }) =>
               onDeferralNoChange={handleDeferralNoChange}
               onDelete={handleDelete}
               onExpiryDateChange={handleExpiryDateChange}
-            //   onViewFile={handleViewFile} // ✅ Make sure this is passed
+              //   onViewFile={handleViewFile} // ✅ Make sure this is passed
               isActionDisabled={isActionDisabled}
             />
 
