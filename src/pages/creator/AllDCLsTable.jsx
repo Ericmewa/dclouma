@@ -21,11 +21,12 @@ import {
 // import ReviewChecklistModal from "../../components/modals/CreatorReviewChecklistModal";
 // import CheckerReviewChecklistModal from "../../components/modals/CheckerReviewChecklistModal";
 // import CompletedChecklistModal from "../../components/modals/CompletedChecklistModal";
-import CreatorCompletedChecklistModal from "../../components/modals/CreatorCompletedChecklistModal";
+// import CreatorCompletedChecklistModal from "../../components/modals/CreatorCompletedChecklistModal";
 import ReviewChecklistModal from "../../components/modals/ReviewChecklistModalComponents/ReviewChecklistModal";
 import RmReviewChecklistModal from "../../components/modals/RmReviewChecklistModalComponents/RmReviewChecklistModal";
 import CheckerReviewChecklistModal from "../../components/modals/CheckerReviewChecklistModalComponents/CheckerReviewChecklistModal";
 import CompletedChecklistModal from "../../components/modals/CompletedChecklistModalComponents/CompletedChecklistModal";
+import CreatorCompletedChecklistModal from "../../components/modals/CreatorCompletedChecklistModal/CreatorCompletedChecklistModal";
 
 const CHECKLIST_STATUS_META = {
   co_creator_review: {
@@ -143,9 +144,9 @@ export default function AllDCLsTable({ filters }) {
     !filters.searchText
       ? true
       : d.dclNo?.toLowerCase().includes(filters.searchText.toLowerCase()) ||
-      d.customerName
-        ?.toLowerCase()
-        .includes(filters.searchText.toLowerCase()),
+        d.customerName
+          ?.toLowerCase()
+          .includes(filters.searchText.toLowerCase()),
   );
 
   // Handle row click to open modal
