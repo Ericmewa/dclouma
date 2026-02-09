@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSelector } from "react-redux";
 import { message } from "antd";
 import {
   useSubmitChecklistToRMMutation,
@@ -14,6 +15,8 @@ export const useChecklistOperations = (
   creatorComment,
   currentUser,
 ) => {
+  const auth = useSelector((state) => state.auth);
+  const token = auth?.token || localStorage.getItem("token");
   const [submitRmChecklist, { isLoading: isSubmittingToRM }] =
     useSubmitChecklistToRMMutation();
   const [updateChecklistStatus, { isLoading: isCheckerSubmitting }] =
@@ -29,6 +32,7 @@ export const useChecklistOperations = (
         throw new Error("Checklist ID missing");
       }
 
+      // Build document structure matching backend DocumentCategoryDto
       const nestedDocuments = docs.reduce((acc, doc) => {
         let categoryGroup = acc.find((c) => c.category === doc.category);
         if (!categoryGroup) {
@@ -36,18 +40,13 @@ export const useChecklistOperations = (
           acc.push(categoryGroup);
         }
         categoryGroup.docList.push({
+          id: doc._id || doc.id,
           _id: doc._id || doc.id,
           name: doc.name,
-          category: doc.category,
-          status: doc.status,
-          displayStatus:
-            doc.status === "deferred" && doc.deferralNo
-              ? `Deferred (${doc.deferralNo})`
-              : doc.status,
-          deferralNo: doc.deferralNo,
-          action: doc.action,
+          status: doc.status || doc.action, // Use action as fallback
           comment: doc.comment,
           fileUrl: doc.fileUrl,
+          deferralNumber: doc.deferralNo,
           deferralReason: doc.deferralReason,
           expiryDate: doc.expiryDate || null,
         });
@@ -55,10 +54,9 @@ export const useChecklistOperations = (
         return acc;
       }, []);
 
+      // Send document updates to backend BEFORE submitting to RM
       const payload = {
-        creatorComment,
         documents: nestedDocuments,
-        supportingDocs: supportingDocs,
       };
 
       await submitRmChecklist({ id: checklistId, body: payload }).unwrap();
@@ -192,6 +190,9 @@ export const useChecklistOperations = (
 
       const response = await fetch(`${API_BASE_URL}/api/uploads`, {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: formData,
       });
 

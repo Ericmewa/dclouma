@@ -438,6 +438,7 @@
 
 // export default RmReviewChecklistModal;
 import React, { useState, useEffect, useMemo } from "react";
+import { useSelector } from "react-redux";
 import { Modal, Button, message, Upload, Space, Tag } from "antd";
 import {
   UploadOutlined,
@@ -467,6 +468,9 @@ const RmReviewChecklistModal = ({
   refetch,
   readOnly = false,
 }) => {
+  const auth = useSelector((state) => state.auth);
+  const token = auth?.token || localStorage.getItem("token");
+
   const [docs, setDocs] = useState([]);
   const [showDocumentSidebar, setShowDocumentSidebar] = useState(false);
   const [rmGeneralComment, setRmGeneralComment] = useState("");
@@ -487,11 +491,11 @@ const RmReviewChecklistModal = ({
     if (!checklist || !checklist.documents) return;
 
     const flattenedDocs = checklist.documents.reduce((acc, categoryObj) => {
-      const filteredDocs = categoryObj.docList
+      const filteredDocs = (categoryObj.docList || [])
         .filter((doc) => doc.name?.trim() !== "")
         .map((doc) => ({
           ...doc,
-          category: categoryObj.category,
+          category: categoryObj.category || "Missing Category",
         }));
       return acc.concat(filteredDocs);
     }, []);
@@ -531,12 +535,60 @@ const RmReviewChecklistModal = ({
     return doc.status || "pendingrm";
   };
 
-  // Allow actions based on document status, not checklist status
-  // DocumentTable.canActOnDoc() will check the individual document status
-  const isActionAllowed = !readOnly;
+  // Allow actions ONLY when checklist status is "rmreview", otherwise read-only
+  const isActionAllowed =
+    !readOnly && checklist?.status?.toLowerCase() === "rmreview";
 
+  // Calculate stats based on ONLY CoCreator status, not RM status
   const documentStats = useMemo(() => {
-    return calculateDocumentStats(docs);
+    const total = docs.length;
+
+    const submitted = docs.filter(
+      (d) =>
+        d.status?.toLowerCase() === "submitted" ||
+        d.action?.toLowerCase() === "submitted",
+    ).length;
+
+    const pendingFromRM = docs.filter(
+      (d) => d.status?.toLowerCase() === "pendingrm",
+    ).length;
+
+    const pendingFromCo = docs.filter(
+      (d) => d.status?.toLowerCase() === "pendingco",
+    ).length;
+
+    const deferred = docs.filter(
+      (d) => d.status?.toLowerCase() === "deferred",
+    ).length;
+
+    const sighted = docs.filter(
+      (d) => d.status?.toLowerCase() === "sighted",
+    ).length;
+
+    const waived = docs.filter(
+      (d) => d.status?.toLowerCase() === "waived",
+    ).length;
+
+    const tbo = docs.filter((d) => d.status?.toLowerCase() === "tbo").length;
+
+    const progressPercent =
+      total === 0
+        ? 0
+        : Math.round(
+            ((submitted + deferred + sighted + waived + tbo) / total) * 100,
+          );
+
+    return {
+      total,
+      submitted,
+      pendingFromRM,
+      pendingFromCo,
+      deferred,
+      sighted,
+      waived,
+      tbo,
+      progressPercent,
+    };
   }, [docs]);
 
   const handleUploadSupportingDoc = async (file) => {
@@ -544,22 +596,19 @@ const RmReviewChecklistModal = ({
       setUploadingSupportingDoc(true);
 
       const formData = new FormData();
-      formData.append("files", file);
+      formData.append("file", file);
+      formData.append("checklistId", checklist._id);
+      formData.append("documentId", `support_${Date.now()}`);
+      formData.append("documentName", file.name);
+      formData.append("category", "Supporting Documents");
 
-      const token =
-        localStorage.getItem("authToken") ||
-        JSON.parse(localStorage.getItem("user") || "{}")?.token;
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/checklist/${checklist.id || checklist._id}/upload`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
+      const response = await fetch(`${API_BASE_URL}/api/uploads`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
         },
-      );
+        body: formData,
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -568,10 +617,8 @@ const RmReviewChecklistModal = ({
 
       const result = await response.json();
 
-      // Update supportingDocs from the response
-      if (result.checklist?.supportingDocs) {
-        setSupportingDocs(result.checklist.supportingDocs);
-      }
+      // Add new supporting doc to the state
+      setSupportingDocs((prev) => [...prev, result.data]);
 
       message.success(`"${file.name}" uploaded successfully!`);
     } catch (error) {
@@ -637,6 +684,7 @@ const RmReviewChecklistModal = ({
         document._id,
         document.name,
         document.category,
+        token,
       );
 
       setDocs((prev) =>
@@ -664,7 +712,8 @@ const RmReviewChecklistModal = ({
 
   const submitRM = async () => {
     try {
-      if (!checklist?._id) throw new Error("Checklist ID missing");
+      const checklistId = checklist?._id || checklist?.id;
+      if (!checklistId) throw new Error("Checklist ID missing");
 
       const missingDeferral = docs.find(
         (doc) =>
@@ -683,23 +732,19 @@ const RmReviewChecklistModal = ({
       }
 
       const payload = {
-        checklistId: checklist._id,
+        checklistId: checklistId,
         documents: docs.map((doc) => ({
           _id: doc._id,
-          name: doc.name,
           category: doc.category,
           status: doc.status,
           action: doc.action,
-          comment: doc.comment,
+          comment: doc.comment || "",
           fileUrl: doc.uploadData?.fileUrl || null,
-          uploadData: doc.uploadData || null,
-          deferralReason: doc.deferralReason,
-          rmStatus: doc.rmStatus,
-          deferralNumber: doc.deferralNumber,
-          deferralNo: doc.deferralNumber || doc.deferralNo,
+          deferralReason: doc.deferralReason || "",
+          rmStatus: doc.rmStatus || null,
+          deferralNumber: doc.deferralNumber || "",
         })),
-        rmGeneralComment,
-        supportingDocs,
+        rmGeneralComment: rmGeneralComment || "",
       };
 
       await submitRmChecklistToCoCreator(payload).unwrap();
@@ -734,9 +779,25 @@ const RmReviewChecklistModal = ({
             fontWeight: 600,
             fontSize: "1.15rem",
             letterSpacing: "0.5px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          Review Checklist — {checklist?.customerNumber || ""}
+          <span>Review Checklist — {checklist?.customerNumber || ""}</span>
+          {!isActionAllowed && (
+            <span
+              style={{
+                fontSize: "0.85rem",
+                fontWeight: 400,
+                backgroundColor: "rgba(255,255,255,0.2)",
+                padding: "4px 12px",
+                borderRadius: "4px",
+              }}
+            >
+              Read-Only
+            </span>
+          )}
         </div>
       }
       open={open}
@@ -859,7 +920,8 @@ const RmReviewChecklistModal = ({
             handleFileUpload={handleFileUpload}
             uploadingDocs={uploadingDocs}
             getFullUrl={getFullUrl}
-            readOnly={readOnly}
+            readOnly={!isActionAllowed}
+            checklistStatus={checklist?.status}
           />
 
           <CommentSection

@@ -1,9 +1,6 @@
 import React from "react";
 import { Button, Space, Tooltip, message } from "antd";
-import {
-  CheckCircleOutlined,
-  UploadOutlined,
-} from "@ant-design/icons";
+import { CheckCircleOutlined, UploadOutlined } from "@ant-design/icons";
 import PDFGenerator from "./PDFGenerator";
 import { ACCENT_LIME, PRIMARY_BLUE } from "../../../utils/constants";
 
@@ -32,24 +29,24 @@ const ActionButtons = ({
   const approveTooltipText = getApproveButtonTooltip
     ? getApproveButtonTooltip()
     : (() => {
-      if (isDisabled) return "Checklist is not in review state";
-      if (checkerReviewed !== total)
-        return `${total - checkerReviewed} document(s) not reviewed yet`;
-      if (checkerRejected > 0)
-        return `${checkerRejected} document(s) rejected`;
-      if (checkerApproved !== total)
-        return `${total - checkerApproved} document(s) not approved`;
-      return "Approve this checklist";
-    })();
+        if (isDisabled) return "Checklist is not in review state";
+        if (checkerReviewed !== total)
+          return `${total - checkerReviewed} document(s) not reviewed yet`;
+        if (checkerRejected > 0)
+          return `${checkerRejected} document(s) rejected`;
+        if (checkerApproved !== total)
+          return `${total - checkerApproved} document(s) not approved`;
+        return "Approve this checklist";
+      })();
 
   // NEW: Return to creator tooltip
   const returnToCreatorTooltipText = getReturnToCreatorTooltip
     ? getReturnToCreatorTooltip()
     : (() => {
-      if (isDisabled) return "Checklist is not in review state";
-      if (checkerRejected === 0) return "No rejected documents to return";
-      return `Return checklist to creator with ${checkerRejected} rejected document(s)`;
-    })();
+        if (isDisabled) return "Checklist is not in review state";
+        if (checkerRejected === 0) return "No rejected documents to return";
+        return `Return checklist to creator with ${checkerRejected} rejected document(s)`;
+      })();
 
   return (
     <div
@@ -72,7 +69,10 @@ const ActionButtons = ({
       >
         <Space size="middle">
           <PDFGenerator
-            checklist={{ ...checklist, dclNo: checklist?.dclNo || checklist?._id }}
+            checklist={{
+              ...checklist,
+              dclNo: checklist?.dclNo || checklist?._id,
+            }}
             docs={docs}
             supportingDocs={[]}
             creatorComment=""
@@ -81,35 +81,33 @@ const ActionButtons = ({
             variant="primary"
           />
 
-          {!effectiveReadOnly && (
-            <Button
-              onClick={handleSaveDraft}
-              loading={isSavingDraft}
-              disabled={isDisabled}
-              style={{
-                borderColor: ACCENT_LIME,
-                color: PRIMARY_BLUE,
-                borderRadius: "6px",
-                fontWeight: 600,
-              }}
-            >
-              Save Draft
-            </Button>
-          )}
+          <Button
+            onClick={handleSaveDraft}
+            loading={isSavingDraft}
+            disabled={isDisabled || effectiveReadOnly}
+            style={{
+              borderColor: ACCENT_LIME,
+              color: PRIMARY_BLUE,
+              borderRadius: "6px",
+              fontWeight: 600,
+              opacity: effectiveReadOnly ? 0.5 : 1,
+            }}
+          >
+            Save Draft
+          </Button>
 
-          {!effectiveReadOnly && (
-            <Button
-              icon={<UploadOutlined />}
-              disabled={isDisabled}
-              style={{
-                borderColor: PRIMARY_BLUE,
-                color: PRIMARY_BLUE,
-                borderRadius: "6px",
-              }}
-            >
-              Upload Docs
-            </Button>
-          )}
+          <Button
+            icon={<UploadOutlined />}
+            disabled={isDisabled || effectiveReadOnly}
+            style={{
+              borderColor: PRIMARY_BLUE,
+              color: PRIMARY_BLUE,
+              borderRadius: "6px",
+              opacity: effectiveReadOnly ? 0.5 : 1,
+            }}
+          >
+            Upload Docs
+          </Button>
         </Space>
 
         <Space size="middle">
@@ -127,10 +125,11 @@ const ActionButtons = ({
                 <Button
                   danger
                   onClick={() => setConfirmAction("co_creator_review")}
-                  disabled={!canReturnToCreator()} // NEW: Use canReturnToCreator
+                  disabled={!canReturnToCreator() || effectiveReadOnly}
                   style={{
                     borderRadius: "6px",
-                    opacity: canReturnToCreator() ? 1 : 0.6,
+                    opacity:
+                      canReturnToCreator() && !effectiveReadOnly ? 1 : 0.6,
                   }}
                 >
                   Return to Creator
@@ -141,7 +140,7 @@ const ActionButtons = ({
                 <Button
                   type="primary"
                   icon={<CheckCircleOutlined />}
-                  disabled={!canApproveChecklist()}
+                  disabled={!canApproveChecklist() || effectiveReadOnly}
                   onClick={() => {
                     if (!canApproveChecklist()) {
                       message.error(approveTooltipText);
@@ -150,12 +149,17 @@ const ActionButtons = ({
                     setConfirmAction("approved");
                   }}
                   style={{
-                    backgroundColor: canApproveChecklist()
-                      ? PRIMARY_BLUE
-                      : "#ccc",
-                    borderColor: canApproveChecklist() ? PRIMARY_BLUE : "#ccc",
+                    backgroundColor:
+                      canApproveChecklist() && !effectiveReadOnly
+                        ? PRIMARY_BLUE
+                        : "#ccc",
+                    borderColor:
+                      canApproveChecklist() && !effectiveReadOnly
+                        ? PRIMARY_BLUE
+                        : "#ccc",
                     borderRadius: "6px",
                     fontWeight: 600,
+                    opacity: effectiveReadOnly ? 0.5 : 1,
                   }}
                 >
                   Approve Checklist

@@ -13,6 +13,7 @@ import { ACCENT_LIME, PRIMARY_BLUE } from "../../../utils/constants";
 const ActionButtons = ({
   readOnly,
   isActionDisabled,
+  shouldGrayOut = false,
   isSubmittingToRM,
   isCheckerSubmitting,
   isSavingDraft,
@@ -27,11 +28,13 @@ const ActionButtons = ({
   onClose,
   comments,
 }) => {
+  // Submit to CoChecker: All documents must have final status (tbo, sighted, deferred, submitted, etc.)
   const canSubmitToCoChecker =
-    checklist?.status === "co_creator_review" &&
+    checklist?.status?.toLowerCase() === "cocreatorreview" &&
     docs.length > 0 &&
-    docs.every((doc) =>
-      [
+    docs.every((doc) => {
+      const docStatus = (doc.action || doc.status || "").toLowerCase();
+      return [
         "submitted_for_review",
         "sighted",
         "waived",
@@ -39,15 +42,19 @@ const ActionButtons = ({
         "tbo",
         "approved",
         "submitted",
-      ].includes((doc.action || "").toLowerCase()),
-    );
+      ].includes(docStatus);
+    });
 
   const allDocsApproved =
     docs.length > 0 && docs.every((doc) => doc.action === "submitted");
 
+  // Submit to RM: Checklist must be in Pending or CoCreatorReview AND have documents pending RM review
   const canSubmitToRM =
+    ["pending", "cocreatorreview", "co_creator_review"].includes(
+      checklist?.status?.toLowerCase(),
+    ) &&
     docs.length > 0 &&
-    docs.some((doc) => (doc.action || doc.status) === "pendingrm");
+    docs.some((doc) => (doc.status || "").toLowerCase() === "pendingrm");
 
   // Fixed: Wrapper functions that handle close after submission
   const handleSubmitToRM = async () => {
@@ -90,12 +97,14 @@ const ActionButtons = ({
           key="save-draft"
           onClick={onSaveDraft}
           loading={isSavingDraft}
+          disabled={shouldGrayOut}
           icon={<SaveOutlined />}
           style={{
             borderColor: ACCENT_LIME,
             color: PRIMARY_BLUE,
             borderRadius: "6px",
             fontWeight: 600,
+            opacity: shouldGrayOut ? 0.5 : 1,
           }}
         >
           Save Draft
@@ -111,10 +120,17 @@ const ActionButtons = ({
             onUploadSupportingDoc(file);
             return false;
           }}
-          disabled={isActionDisabled}
+          disabled={isActionDisabled || shouldGrayOut}
           accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif"
         >
-          <Button icon={<UploadOutlined />} style={{ borderRadius: "6px" }}>
+          <Button
+            icon={<UploadOutlined />}
+            disabled={shouldGrayOut}
+            style={{
+              borderRadius: "6px",
+              opacity: shouldGrayOut ? 0.5 : 1,
+            }}
+          >
             Upload Supporting Doc
           </Button>
         </Upload>
@@ -135,11 +151,15 @@ const ActionButtons = ({
         <Button
           key="submit"
           type="primary"
-          disabled={isActionDisabled || !canSubmitToRM}
+          disabled={isActionDisabled || !canSubmitToRM || shouldGrayOut}
           loading={isSubmittingToRM}
           onClick={handleSubmitToRM} // Use the wrapper function
           icon={<SendOutlined />}
-          style={{ borderRadius: "6px", fontWeight: 600 }}
+          style={{
+            borderRadius: "6px",
+            fontWeight: 600,
+            opacity: shouldGrayOut ? 0.5 : 1,
+          }}
         >
           Submit to RM
         </Button>
@@ -152,12 +172,13 @@ const ActionButtons = ({
           type="primary"
           loading={isCheckerSubmitting}
           onClick={handleSubmitToCheckers} // Use the wrapper function
-          disabled={!canSubmitToCoChecker}
+          disabled={!canSubmitToCoChecker || shouldGrayOut}
           icon={<CheckCircleOutlined />}
           style={{
             backgroundColor: PRIMARY_BLUE,
             borderRadius: "6px",
             fontWeight: 600,
+            opacity: shouldGrayOut ? 0.5 : 1,
           }}
         >
           Submit to Co-Checker

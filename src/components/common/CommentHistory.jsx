@@ -79,7 +79,17 @@ const CommentHistory = ({ comments = [], isLoading }) => {
     return true;
   });
 
-  if (filteredComments.length === 0) {
+  /* ---------------------------
+     SORT COMMENTS BY TIMESTAMP
+     Newest first (descending order)
+  ---------------------------- */
+  const sortedComments = [...filteredComments].sort((a, b) => {
+    const timeA = new Date(a.createdAt || a.timestamp || 0).getTime();
+    const timeB = new Date(b.createdAt || b.timestamp || 0).getTime();
+    return timeB - timeA; // Newest first
+  });
+
+  if (sortedComments.length === 0) {
     return (
       <div style={{ padding: 8, fontSize: 12, color: "#9ca3af" }}>
         No user comments yet.
@@ -90,64 +100,94 @@ const CommentHistory = ({ comments = [], isLoading }) => {
   return (
     <div
       style={{
-        maxHeight: "220px",
+        maxHeight: "320px",
         overflowY: "auto",
         display: "flex",
         flexDirection: "column",
-        gap: "6px",
-        padding: "6px 4px",
+        gap: "8px",
+        padding: "8px 4px",
+        border: "1px solid #e5e7eb",
+        borderRadius: "6px",
+        background: "#fafbfc",
       }}
     >
-      {filteredComments.map((item, index) => (
+      {/* Title */}
+      <div
+        style={{
+          fontSize: "12px",
+          fontWeight: 700,
+          color: "#1f2937",
+          padding: "0 8px",
+          borderBottom: "1px solid #e5e7eb",
+          paddingBottom: "6px",
+        }}
+      >
+        Comment Trail ({sortedComments.length})
+      </div>
+
+      {/* Comments */}
+      {sortedComments.map((item, index) => (
         <div
           key={item._id || index}
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: "8px",
+            flexDirection: "column",
+            gap: "4px",
             fontSize: "12px",
             color: "#374151",
-            padding: "6px 8px",
-            borderRadius: "6px",
-            background: "#f9fafb",
+            padding: "8px 8px",
+            borderRadius: "4px",
+            background: "#ffffff",
+            border: "1px solid #f0f0f0",
           }}
         >
-          {/* Avatar */}
-          <Avatar
-            size={18}
-            icon={<UserOutlined />}
-            style={{ backgroundColor: "#164679", flexShrink: 0 }}
-          />
+          {/* Header: Avatar, Name, Role, Time */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            {/* Avatar */}
+            <Avatar
+              size={20}
+              icon={<UserOutlined />}
+              style={{ backgroundColor: "#164679", flexShrink: 0 }}
+            />
 
-          {/* Name */}
-          <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-            {item.userId?.name || item.user}
-          </span>
+            {/* Name */}
+            <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
+              {item.userId?.name ||
+                (typeof item.user === "object" ? item.user?.name : item.user) ||
+                "Unknown"}
+            </span>
 
-          {/* Role */}
-          {getRoleTag(item.userId?.role || item.role)}
+            {/* Role */}
+            {getRoleTag(item.userId?.role || item.role)}
 
-          {/* Comment */}
-          <span
+            {/* Time */}
+            <span
+              style={{
+                fontSize: "11px",
+                color: "#9ca3af",
+                marginLeft: "auto",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {new Date(item.createdAt || item.timestamp).toLocaleString([], {
+                dateStyle: "short",
+                timeStyle: "short",
+              })}
+            </span>
+          </div>
+
+          {/* Comment Text */}
+          <div
             style={{
               color: "#4b5563",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              flex: 1,
+              lineHeight: "1.4",
+              wordBreak: "break-word",
+              paddingLeft: "28px",
+              fontSize: "12px",
             }}
-            title={item.message || item.comment}
           >
             {item.message || item.comment}
-          </span>
-
-          {/* Time */}
-          <span style={{ fontSize: "10px", color: "#9ca3af", flexShrink: 0 }}>
-            {new Date(item.createdAt || item.timestamp).toLocaleString([], {
-              dateStyle: "short",
-              timeStyle: "short",
-            })}
-          </span>
+          </div>
         </div>
       ))}
     </div>

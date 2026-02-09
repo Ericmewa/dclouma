@@ -12,11 +12,14 @@ const DocumentSidebar = ({
   onClose,
   getFullUrl,
 }) => {
+  // Include docs that are either:
+  // 1. Locally uploaded (uploadData exists and not deleted)
+  // 2. Persisted on backend (fileUrl exists)
   const uploadedDocs = documents.filter(
-    (d) => d.uploadData && d.uploadData.status !== "deleted",
+    (d) => (d.uploadData && d.uploadData.status !== "deleted") || !!d.fileUrl,
   );
 
-  const allDocs = [...uploadedDocs, ...supportingDocs];
+  const allDocs = [...uploadedDocs, ...(supportingDocs || [])];
 
   const groupedDocs = allDocs.reduce((acc, doc) => {
     const group = doc.category || "Main Documents";
@@ -64,8 +67,9 @@ const DocumentSidebar = ({
                 </b>
               ),
               children: docs.map((doc, idx) => {
-                // Check if this is a supporting doc (has uploadedByRole) or regular doc (has uploadData)
+                // Check if this is a supporting doc (has uploadedByRole) or regular doc (has uploadData or fileUrl)
                 const isSupportingDoc = !!doc.uploadedByRole || !!doc.fileName;
+                const hasBackendFile = !!doc.fileUrl && !doc.uploadData;
 
                 return (
                   <Card
@@ -92,16 +96,20 @@ const DocumentSidebar = ({
                         color={
                           isSupportingDoc
                             ? "blue"
-                            : doc.uploadData?.status === "active"
+                            : hasBackendFile
                               ? "green"
-                              : "red"
+                              : doc.uploadData?.status === "active"
+                                ? "green"
+                                : "red"
                         }
                       >
                         {isSupportingDoc
                           ? "Supporting"
-                          : doc.uploadData?.status === "active"
-                            ? "Active"
-                            : "Deleted"}
+                          : hasBackendFile
+                            ? "Uploaded"
+                            : doc.uploadData?.status === "active"
+                              ? "Active"
+                              : "Deleted"}
                       </Tag>
                     </div>
 
@@ -215,7 +223,8 @@ const DocumentSidebar = ({
                       </div>
 
                       {(isSupportingDoc ||
-                        doc.uploadData?.status === "active") && (
+                        doc.uploadData?.status === "active" ||
+                        !!doc.fileUrl) && (
                         <Button
                           type="link"
                           icon={<DownloadOutlined />}

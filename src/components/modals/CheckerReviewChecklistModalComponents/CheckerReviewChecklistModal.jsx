@@ -249,7 +249,10 @@ const CheckerReviewChecklistModal = ({
 
   const isDisabled =
     effectiveReadOnly ||
-    !["check_review", "co_checker_review"].includes(checklist?.status);
+    !["CoCheckerReview", "co_checker_review", "check_review"].some(
+      (status) =>
+        (checklist?.status || "").toLowerCase() === status.toLowerCase(),
+    );
 
   // Check if all documents are approved
   const canApproveChecklist = () => {
@@ -340,7 +343,31 @@ const CheckerReviewChecklistModal = ({
         />
 
         {/* Main Content Area */}
-        <div className="p-6 space-y-6">
+        <div
+          className="p-6 space-y-6"
+          style={{
+            opacity: effectiveReadOnly ? 0.5 : 1,
+            pointerEvents: effectiveReadOnly ? "none" : "auto",
+            transition: "opacity 0.3s ease",
+          }}
+        >
+          {effectiveReadOnly && (
+            <div
+              style={{
+                background: "#fff7e6",
+                border: "1px solid #ffd591",
+                borderRadius: 8,
+                padding: "8px 16px",
+                marginBottom: 16,
+                color: "#d46b08",
+                fontWeight: 600,
+                fontSize: 13,
+              }}
+            >
+              This checklist status doesn't allow Checker actions — all fields
+              are read-only.
+            </div>
+          )}
           {/* Checklist Details */}
           <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
             <ChecklistDetails

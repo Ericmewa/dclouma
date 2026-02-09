@@ -1,36 +1,36 @@
-import { useCallback } from 'react';
-import { message } from 'antd';
-import { getFullUrl } from '../utils/checklistUtils';
-import { API_BASE_URL } from '../utils/constants';
+import { useCallback } from "react";
+import { message } from "antd";
+import { getFullUrl } from "../utils/checklistUtils";
+import { API_BASE_URL } from "../utils/constants";
 // import dayjs from 'dayjs';
 
-
-
-
 export const useDocumentHandlers = (docs, setDocs, isActionDisabled) => {
-  
-  const handleActionChange = useCallback((idx, value) => {
-    if (isActionDisabled) return;
-    const updated = [...docs];
-    updated[idx].action = value;
-    updated[idx].status = value;
-    setDocs(updated);
-  }, [docs, setDocs, isActionDisabled]);
-
-   const handleDeleteSupportingDoc = useCallback(async (docId, docName) => {
+  const handleActionChange = useCallback(
+    (idx, value) => {
       if (isActionDisabled) return;
-      
+      const updated = [...docs];
+      updated[idx].action = value;
+      updated[idx].status = value;
+      setDocs(updated);
+    },
+    [docs, setDocs, isActionDisabled],
+  );
+
+  const handleDeleteSupportingDoc = useCallback(
+    async (docId, docName) => {
+      if (isActionDisabled) return;
+
       const confirm = window.confirm(`Delete "${docName}"?`);
       if (!confirm) return;
-  
+
       try {
         // You'll need to import apiUtils or use fetch directly
         const response = await fetch(`${API_BASE_URL}/api/uploads/${docId}`, {
           method: "DELETE",
         });
-  
+
         const result = await response.json();
-  
+
         if (result.success) {
           message.success("Document deleted!");
           return true; // Return true to indicate success
@@ -43,37 +43,52 @@ export const useDocumentHandlers = (docs, setDocs, isActionDisabled) => {
         message.error("Delete error: " + error.message);
         return false;
       }
-    }, [isActionDisabled]);
+    },
+    [isActionDisabled],
+  );
 
-  const handleDeferralNoChange = useCallback((idx, value) => {
-    if (isActionDisabled) return;
-    const updated = [...docs];
-    updated[idx].deferralNo = value;
-    setDocs(updated);
-  }, [docs, setDocs, isActionDisabled]);
+  const handleDeferralNoChange = useCallback(
+    (idx, value) => {
+      if (isActionDisabled) return;
+      const updated = [...docs];
+      updated[idx].deferralNo = value;
+      updated[idx].deferralNumber = value; // Keep both fields in sync
+      setDocs(updated);
+    },
+    [docs, setDocs, isActionDisabled],
+  );
 
-  const handleCommentChange = useCallback((idx, value) => {
-    if (isActionDisabled) return;
-    const updated = [...docs];
-    updated[idx].comment = value;
-    setDocs(updated);
-  }, [docs, setDocs, isActionDisabled]);
+  const handleCommentChange = useCallback(
+    (idx, value) => {
+      if (isActionDisabled) return;
+      const updated = [...docs];
+      updated[idx].comment = value;
+      setDocs(updated);
+    },
+    [docs, setDocs, isActionDisabled],
+  );
 
-  const handleDelete = useCallback((idx) => {
-    if (isActionDisabled) return;
-    const updated = docs
-      .filter((_, i) => i !== idx)
-      .map((doc, i) => ({ ...doc, docIdx: i }));
-    setDocs(updated);
-    message.success("Document deleted.");
-  }, [docs, setDocs, isActionDisabled]);
+  const handleDelete = useCallback(
+    (idx) => {
+      if (isActionDisabled) return;
+      const updated = docs
+        .filter((_, i) => i !== idx)
+        .map((doc, i) => ({ ...doc, docIdx: i }));
+      setDocs(updated);
+      message.success("Document deleted.");
+    },
+    [docs, setDocs, isActionDisabled],
+  );
 
-  const handleExpiryDateChange = useCallback((idx, date) => {
-    if (isActionDisabled) return;
-    const updated = [...docs];
-    updated[idx].expiryDate = date ? date.toISOString() : null;
-    setDocs(updated);
-  }, [docs, setDocs, isActionDisabled]);
+  const handleExpiryDateChange = useCallback(
+    (idx, date) => {
+      if (isActionDisabled) return;
+      const updated = [...docs];
+      updated[idx].expiryDate = date ? date.toISOString() : null;
+      setDocs(updated);
+    },
+    [docs, setDocs, isActionDisabled],
+  );
 
   const handleViewFile = useCallback((record) => {
     const fileUrl = record.fileUrl || record.uploadData?.fileUrl;
@@ -81,13 +96,9 @@ export const useDocumentHandlers = (docs, setDocs, isActionDisabled) => {
       message.warning("No file available to view");
       return;
     }
-    
+
     const fullUrl = getFullUrl(fileUrl);
-    const newWindow = window.open(
-      fullUrl,
-      "_blank",
-      "noopener,noreferrer"
-    );
+    const newWindow = window.open(fullUrl, "_blank", "noopener,noreferrer");
     if (!newWindow) {
       message.error("Popup blocked! Please allow popups.");
     }
@@ -100,6 +111,6 @@ export const useDocumentHandlers = (docs, setDocs, isActionDisabled) => {
     handleDelete,
     handleExpiryDateChange,
     handleViewFile,
-    handleDeleteSupportingDoc
+    handleDeleteSupportingDoc,
   };
 };

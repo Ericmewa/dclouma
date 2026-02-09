@@ -1,4 +1,5 @@
-import React from "react";
+// export default DocumentTable;
+import dayjs from "dayjs";
 import {
   Table,
   Tag,
@@ -9,9 +10,6 @@ import {
   DatePicker,
 } from "antd";
 import { EyeOutlined, DeleteOutlined } from "@ant-design/icons";
-// import { getFullUrl, getStatusColor, getExpiryStatus } from '../../utils/documentUtils';
-// import { PRIMARY_BLUE, SECONDARY_PURPLE } from '../../utils/constants';
-import dayjs from "dayjs";
 import { getExpiryStatus, getStatusColor } from "../../../utils/documentUtils";
 import { PRIMARY_BLUE, SECONDARY_PURPLE } from "../../../utils/constants";
 import { getFullUrl } from "../../../utils/checklistUtils";
@@ -27,12 +25,22 @@ const DocumentTable = ({
   onExpiryDateChange,
   onViewFile, // ✅ Make sure this is passed
   isActionDisabled,
+  checklistStatus, // ✅ Accept checklist status as prop
 }) => {
-  // CoCreator can only act on documents with pendingco status
+  // CoCreator can act when:
+  // 1. Checklist status is "pending" or "cocreatorreview" OR
+  // 2. Document status is "pendingco"
   const canActOnDoc = (doc) => {
+    if (isActionDisabled) return false;
+
     const docStatus = (doc.status || "").toLowerCase();
-    const isPendingCo = docStatus === "pendingco";
-    return !isActionDisabled && isPendingCo;
+    const checklistStat = (checklistStatus || "").toLowerCase();
+
+    // Allow actions when checklist is in pending/cocreatorreview OR document is pendingco
+    return (
+      ["pending", "cocreatorreview"].includes(checklistStat) ||
+      docStatus === "pendingco"
+    );
   };
   const columns = [
     {
@@ -122,10 +130,12 @@ const DocumentTable = ({
       dataIndex: "deferralNo",
       width: 120,
       render: (deferralNo, record) => {
-        if (record.status === "deferred" && deferralNo) {
+        // Show deferral number if it exists in either field
+        const deferralNum = record.deferralNo || record.deferralNumber;
+        if (deferralNum) {
           return (
             <Tag color="orange" style={{ fontWeight: "bold" }}>
-              {deferralNo}
+              {deferralNum}
             </Tag>
           );
         }
@@ -312,21 +322,26 @@ const DocumentTable = ({
       title: "Delete",
       key: "delete",
       width: 80,
-      render: (_, record) =>
-        canActOnDoc(record) ? (
-          <Popconfirm
-            title="Delete document?"
-            description="This action cannot be undone."
-            okText="Yes, Delete"
-            cancelText="Cancel"
-            okButtonProps={{ danger: true }}
-            onConfirm={() => onDelete(record.docIdx)}
+      render: (_, record) => (
+        <Popconfirm
+          title="Delete document?"
+          description="This action cannot be undone."
+          okText="Yes, Delete"
+          cancelText="Cancel"
+          okButtonProps={{ danger: true }}
+          onConfirm={() => onDelete(record.docIdx)}
+          disabled={!canActOnDoc(record)}
+        >
+          <Button
+            type="text"
+            danger
+            size="small"
+            disabled={!canActOnDoc(record)}
           >
-            <Button type="text" danger size="small">
-              <DeleteOutlined />
-            </Button>
-          </Popconfirm>
-        ) : null,
+            <DeleteOutlined />
+          </Button>
+        </Popconfirm>
+      ),
     },
   ];
 

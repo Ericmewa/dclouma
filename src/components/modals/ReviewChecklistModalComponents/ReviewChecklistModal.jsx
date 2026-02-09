@@ -42,8 +42,14 @@ const ReviewChecklistModal = ({
     });
 
   const isActionDisabled = readOnly;
-  // Allow actions based on document status, not checklist status
-  // DocumentTable will check individual document status via canActOnDoc()
+  // Check if checklist status allows actions (Creator can act on pending or cocreatorreview)
+  const checklistStatus = (checklist?.status || "").toLowerCase();
+  const isCreatorReviewAllowed = [
+    "pending",
+    "cocreatorreview",
+    "co_creator_review",
+  ].includes(checklistStatus);
+  const shouldGrayOut = isActionDisabled || !isCreatorReviewAllowed;
 
   const {
     handleActionChange,
@@ -87,13 +93,15 @@ const ReviewChecklistModal = ({
     const preparedDocs = flatDocs.map((doc, idx) => ({
       ...doc,
       docIdx: idx,
-      status: doc.status || "pendingrm",
-      action: doc.status || "pendingrm",
+      status: doc.status, // PRESERVE original status from backend
+      action: doc.action || doc.status, // Use action if it exists, otherwise use status
       comment: doc.comment || "",
       fileUrl: doc.fileUrl || null,
       expiryDate: doc.expiryDate || null,
-      finalCheckerStatus:
-        doc.checkerStatus || doc.finalCheckerStatus || "pending",
+      finalCheckerStatus: doc.checkerStatus || doc.finalCheckerStatus,
+      deferralNumber: doc.deferralNumber || doc.deferralNo || "",
+      deferralNo: doc.deferralNo || doc.deferralNumber || "",
+      rmStatus: doc.rmStatus || "",
     }));
 
     setDocs(preparedDocs);
@@ -118,7 +126,8 @@ const ReviewChecklistModal = ({
         footer={
           <ActionButtons
             readOnly={readOnly}
-            isActionDisabled={isActionDisabled}
+            isActionDisabled={isActionDisabled || shouldGrayOut}
+            shouldGrayOut={shouldGrayOut}
             isSubmittingToRM={isSubmittingToRM}
             isCheckerSubmitting={isCheckerSubmitting}
             isSavingDraft={isSavingDraft}
@@ -160,12 +169,36 @@ const ReviewChecklistModal = ({
         />
 
         {checklist && (
-          <>
+          <div
+            style={{
+              opacity: shouldGrayOut ? 0.5 : 1,
+              pointerEvents: shouldGrayOut ? "none" : "auto",
+              transition: "opacity 0.3s ease",
+            }}
+          >
             {/* Checklist Header */}
             <ChecklistHeader checklist={checklist} />
 
             {/* Progress Stats */}
             <ProgressStats docs={docs} />
+
+            {shouldGrayOut && !isActionDisabled && (
+              <div
+                style={{
+                  background: "#fff7e6",
+                  border: "1px solid #ffd591",
+                  borderRadius: 8,
+                  padding: "8px 16px",
+                  marginBottom: 16,
+                  color: "#d46b08",
+                  fontWeight: 600,
+                  fontSize: 13,
+                }}
+              >
+                This checklist status doesn't allow Creator actions — all fields
+                are read-only.
+              </div>
+            )}
 
             {/* Document Table */}
             <DocumentTable
@@ -175,17 +208,9 @@ const ReviewChecklistModal = ({
               onDeferralNoChange={handleDeferralNoChange}
               onDelete={handleDelete}
               onExpiryDateChange={handleExpiryDateChange}
-              //   onViewFile={handleViewFile} // ✅ Make sure this is passed
-              isActionDisabled={isActionDisabled}
+              isActionDisabled={isActionDisabled || shouldGrayOut}
+              checklistStatus={checklist?.status}
             />
-
-            {/* Supporting Documents - Hidden as they now appear in View Documents sidebar */}
-            {/* <SupportingDocsSection
-              supportingDocs={supportingDocs}
-              readOnly={readOnly}
-              isActionDisabled={isActionDisabled}
-              onDeleteSupportingDoc={handleDeleteSupportingDoc}
-            /> */}
 
             {/* Creator Comment */}
             <div style={{ marginTop: 24 }}>
@@ -202,7 +227,7 @@ const ReviewChecklistModal = ({
                 rows={2}
                 value={creatorComment}
                 onChange={(e) => setCreatorComment(e.target.value)}
-                disabled={isActionDisabled}
+                disabled={isActionDisabled || shouldGrayOut}
                 placeholder="Add a comment for RM / Co-Checker"
                 style={{ borderRadius: 8 }}
               />
@@ -221,7 +246,7 @@ const ReviewChecklistModal = ({
               </h4>
               <CommentHistory comments={comments} isLoading={commentsLoading} />
             </div>
-          </>
+          </div>
         )}
       </Modal>
     </>

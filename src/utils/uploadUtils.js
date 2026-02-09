@@ -8,7 +8,8 @@ export const uploadFileToBackend = async (
   checklistId,
   documentId,
   documentName,
-  category
+  category,
+  token, // Add token parameter
 ) => {
   const formData = new FormData();
   formData.append("file", file);
@@ -20,12 +21,22 @@ export const uploadFileToBackend = async (
   try {
     const response = await fetch(`${API_BASE_URL}/api/uploads`, {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`, // Add auth header
+      },
       body: formData,
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || "Upload failed");
+      const errorText = await response.text();
+      let errorMsg = "Upload failed";
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMsg = errorData.error || errorMsg;
+      } catch (e) {
+        errorMsg = errorText || errorMsg;
+      }
+      throw new Error(errorMsg);
     }
 
     const data = await response.json();
@@ -50,7 +61,7 @@ export const handleDeleteFile = async (doc, docs, setDocs, docIdx) => {
       `${API_BASE_URL}/api/uploads/${doc.uploadData._id}`,
       {
         method: "DELETE",
-      }
+      },
     );
 
     const result = await response.json();
