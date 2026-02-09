@@ -14,6 +14,7 @@ export const useChecklistOperations = (
   supportingDocs,
   creatorComment,
   currentUser,
+  onChecklistUpdate = null, // Callback to update parent component with fresh checklist data
 ) => {
   const auth = useSelector((state) => state.auth);
   const token = auth?.token || localStorage.getItem("token");
@@ -59,8 +60,23 @@ export const useChecklistOperations = (
         documents: nestedDocuments,
       };
 
-      await submitRmChecklist({ id: checklistId, body: payload }).unwrap();
-      message.success("Checklist submitted to RM!");
+      const result = await submitRmChecklist({
+        id: checklistId,
+        body: payload,
+      }).unwrap();
+
+      message.success("Checklist submitted to RM successfully!");
+
+      // Trigger parent callback to refetch checklist data
+      if (onChecklistUpdate) {
+        onChecklistUpdate({
+          id: checklistId,
+          status: "RMReview",
+          message: "Checklist submitted to RM",
+        });
+      }
+
+      return result;
     } catch (err) {
       console.error("Submit to RM error:", err);
       message.error(

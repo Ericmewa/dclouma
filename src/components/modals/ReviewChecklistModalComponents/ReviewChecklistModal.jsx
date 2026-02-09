@@ -26,12 +26,14 @@ const ReviewChecklistModal = ({
   open,
   onClose,
   readOnly = false,
+  onChecklistUpdate = null, // Callback to update parent with fresh checklist data
 }) => {
   // State
   const [docs, setDocs] = useState([]);
   const [supportingDocs, setSupportingDocs] = useState([]);
   const [creatorComment, setCreatorComment] = useState("");
   const [showDocumentSidebar, setShowDocumentSidebar] = useState(false);
+  const [localChecklist, setLocalChecklist] = useState(checklist);
 
   // Hooks
   const documentStats = useDocumentStats(docs);
@@ -43,7 +45,11 @@ const ReviewChecklistModal = ({
 
   const isActionDisabled = readOnly;
   // Check if checklist status allows actions (Creator can act on pending or cocreatorreview)
-  const checklistStatus = (checklist?.status || "").toLowerCase();
+  const checklistStatus = (
+    localChecklist?.status ||
+    checklist?.status ||
+    ""
+  ).toLowerCase();
   const isCreatorReviewAllowed = [
     "pending",
     "cocreatorreview",
@@ -60,6 +66,15 @@ const ReviewChecklistModal = ({
     handleDeleteSupportingDoc,
   } = useDocumentHandlers(docs, setDocs, isActionDisabled);
 
+  const handleChecklistUpdate = (updatedChecklist) => {
+    // Update local state
+    setLocalChecklist(updatedChecklist);
+    // Call parent callback if provided
+    if (onChecklistUpdate) {
+      onChecklistUpdate(updatedChecklist);
+    }
+  };
+
   const {
     isSubmittingToRM,
     isCheckerSubmitting,
@@ -68,16 +83,30 @@ const ReviewChecklistModal = ({
     submitToRM,
     submitToCheckers,
     saveDraft,
-  } = useChecklistOperations(checklist, docs, supportingDocs, creatorComment);
+  } = useChecklistOperations(
+    checklist,
+    docs,
+    supportingDocs,
+    creatorComment,
+    null,
+    handleChecklistUpdate,
+  );
 
+  //   const isActionDisabled = readOnly || !["pending", "co_creator_review"].includes(
   //   const isActionDisabled = readOnly || !["pending", "co_creator_review"].includes(
   //     checklist?.status?.toLowerCase(),
   //   );
 
+  // Sync localChecklist with prop when modal opens or checklist changes
   useEffect(() => {
-    if (!checklist || !checklist.documents) return;
+    setLocalChecklist(checklist);
+  }, [checklist, open]);
 
-    const flatDocs = checklist.documents.reduce((acc, item) => {
+  useEffect(() => {
+    const sourceChecklist = localChecklist || checklist;
+    if (!sourceChecklist || !sourceChecklist.documents) return;
+
+    const flatDocs = sourceChecklist.documents.reduce((acc, item) => {
       if (item.docList && Array.isArray(item.docList) && item.docList.length) {
         const nestedDocs = item.docList.map((doc) => ({
           ...doc,
@@ -105,14 +134,15 @@ const ReviewChecklistModal = ({
     }));
 
     setDocs(preparedDocs);
-  }, [checklist]);
+  }, [localChecklist, checklist]);
 
   // Update supporting docs whenever checklist changes
   useEffect(() => {
-    if (checklist?.supportingDocs) {
-      setSupportingDocs(checklist.supportingDocs);
+    const sourceChecklist = localChecklist || checklist;
+    if (sourceChecklist?.supportingDocs) {
+      setSupportingDocs(sourceChecklist.supportingDocs);
     }
-  }, [checklist?.supportingDocs]);
+  }, [localChecklist?.supportingDocs, checklist?.supportingDocs]);
 
   return (
     <>

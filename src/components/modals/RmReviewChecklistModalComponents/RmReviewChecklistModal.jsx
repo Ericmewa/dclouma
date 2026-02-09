@@ -467,6 +467,7 @@ const RmReviewChecklistModal = ({
   onClose,
   refetch,
   readOnly = false,
+  onChecklistUpdate = null, // Callback to update parent with fresh checklist data
 }) => {
   const auth = useSelector((state) => state.auth);
   const token = auth?.token || localStorage.getItem("token");
@@ -477,6 +478,7 @@ const RmReviewChecklistModal = ({
   const [supportingDocs, setSupportingDocs] = useState([]);
   const [uploadingSupportingDoc, setUploadingSupportingDoc] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState({});
+  const [localChecklist, setLocalChecklist] = useState(checklist);
 
   const [submitRmChecklistToCoCreator, { isLoading }] =
     useRmSubmitChecklistToCoCreatorMutation();
@@ -486,6 +488,15 @@ const RmReviewChecklistModal = ({
     useGetChecklistCommentsQuery(checklist?.id || checklist?._id, {
       skip: !checklist?.id && !checklist?._id,
     });
+
+  const handleChecklistUpdate = (updatedChecklist) => {
+    // Update local state
+    setLocalChecklist(updatedChecklist);
+    // Call parent callback if provided
+    if (onChecklistUpdate) {
+      onChecklistUpdate(updatedChecklist);
+    }
+  };
 
   useEffect(() => {
     if (!checklist || !checklist.documents) return;
@@ -735,6 +746,7 @@ const RmReviewChecklistModal = ({
         checklistId: checklistId,
         documents: docs.map((doc) => ({
           _id: doc._id,
+          id: doc.id,
           category: doc.category,
           status: doc.status,
           action: doc.action,
@@ -744,11 +756,19 @@ const RmReviewChecklistModal = ({
           rmStatus: doc.rmStatus || null,
           deferralNumber: doc.deferralNumber || "",
         })),
+        supportingDocs: supportingDocs.map((doc) => ({
+          id: doc.id,
+          name: doc.name,
+          fileUrl: doc.fileUrl,
+        })),
         rmGeneralComment: rmGeneralComment || "",
       };
 
       await submitRmChecklistToCoCreator(payload).unwrap();
       if (refetch) refetch();
+
+      // Call callback with updated checklist status signal
+      handleChecklistUpdate({ ...localChecklist, status: "CoCreatorReview" });
 
       message.success("Checklist submitted to CO-Checker!");
       onClose();
@@ -929,17 +949,9 @@ const RmReviewChecklistModal = ({
             rmGeneralComment={rmGeneralComment}
             setRmGeneralComment={setRmGeneralComment}
             isActionAllowed={isActionAllowed}
+            comments={comments}
+            commentsLoading={commentsLoading}
           />
-
-          {/* Add Comment History Section - Place this before or after CommentSection based on your preference */}
-          <div style={{ marginTop: 24, marginBottom: 24 }}>
-            <h4
-              style={{ color: PRIMARY_BLUE, fontWeight: 700, marginBottom: 12 }}
-            >
-              Comment Trail & History
-            </h4>
-            <CommentHistory comments={comments} isLoading={commentsLoading} />
-          </div>
 
           {/* Supporting Documents - RM can upload and delete */}
           <SupportingDocsSection

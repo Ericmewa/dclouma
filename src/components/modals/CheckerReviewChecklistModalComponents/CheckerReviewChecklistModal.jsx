@@ -24,6 +24,7 @@ const CheckerReviewChecklistModal = ({
   onClose,
   isReadOnly = false,
   readOnly = false,
+  onChecklistUpdate = null, // Callback to update parent with fresh checklist data
 }) => {
   const effectiveReadOnly = isReadOnly || readOnly;
   const [docs, setDocs] = useState([]);
@@ -33,6 +34,7 @@ const CheckerReviewChecklistModal = ({
   const [confirmAction, setConfirmAction] = useState(null);
   const [showDocumentSidebar, setShowDocumentSidebar] = useState(false);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [localChecklist, setLocalChecklist] = useState(checklist);
 
   const [submitCheckerStatus] = useUpdateCheckerStatusMutation();
   const [saveDraft, { isLoading: isSavingDraft }] =
@@ -52,6 +54,15 @@ const CheckerReviewChecklistModal = ({
 
   const { total, checkerApproved, checkerRejected, checkerReviewed } =
     documentStats;
+
+  const handleChecklistUpdate = (updatedChecklist) => {
+    // Update local state
+    setLocalChecklist(updatedChecklist);
+    // Call parent callback if provided
+    if (onChecklistUpdate) {
+      onChecklistUpdate(updatedChecklist);
+    }
+  };
 
   useEffect(() => {
     if (!checklist?.documents) return;
@@ -200,6 +211,8 @@ const CheckerReviewChecklistModal = ({
 
       await submitCheckerStatus(payload).unwrap();
       setConfirmAction(null);
+      // Call callback with updated checklist status signal
+      handleChecklistUpdate({ ...localChecklist, status: action });
       onClose();
     } catch (err) {
       console.error(err);
@@ -338,6 +351,7 @@ const CheckerReviewChecklistModal = ({
         {/* Document Sidebar */}
         <DocumentSidebar
           documents={docs}
+          supportingDocs={supportingDocs}
           open={showDocumentSidebar}
           onClose={() => setShowDocumentSidebar(false)}
         />

@@ -1,5 +1,6 @@
 import React from "react";
 import { Input } from "antd";
+import CommentHistory from "../../common/CommentHistory";
 import { PRIMARY_BLUE } from "../../../utils/colors";
 // import { PRIMARY_BLUE } from "../constants/colors";
 
@@ -8,9 +9,19 @@ const CommentSection = ({
   rmGeneralComment,
   setRmGeneralComment,
   isActionAllowed,
+  comments,
+  commentsLoading,
 }) => {
   return (
     <>
+      {/* Display all comments from all users (CoCreator, RM, Checker) */}
+      <div style={{ marginBottom: 24 }}>
+        <h4 style={{ color: PRIMARY_BLUE, fontWeight: 700, marginBottom: 12 }}>
+          Comment Trail & History
+        </h4>
+        <CommentHistory comments={comments} isLoading={commentsLoading} />
+      </div>
+
       <h3 style={{ marginTop: 24, color: PRIMARY_BLUE, fontWeight: "bold" }}>
         RM General Comment
       </h3>
