@@ -9,6 +9,20 @@ const baseQuery = fetchBaseQuery({
   },
 });
 
+const normalizeRole = (role) => {
+  if (!role) return role;
+  const key = String(role).trim().toLowerCase();
+  const roleMap = {
+    admin: "Admin",
+    rm: "RM",
+    approver: "Approver",
+    cocreator: "CoCreator",
+    cochecker: "CoChecker",
+    customer: "Customer",
+  };
+  return roleMap[key] || role;
+};
+
 export const userApi = createApi({
   reducerPath: "userApi",
   baseQuery,
@@ -23,7 +37,7 @@ export const userApi = createApi({
       query: (data) => ({
         url: "/create",
         method: "POST",
-        body: data,
+        body: { ...data, role: normalizeRole(data?.role) },
       }),
       invalidatesTags: ["User"],
     }),
@@ -57,7 +71,7 @@ export const userApi = createApi({
       query: ({ id, role }) => ({
         url: `/${id}/role`,
         method: "PUT",
-        body: { role },
+        body: { role: normalizeRole(role) },
       }),
       invalidatesTags: ["User"],
     }),

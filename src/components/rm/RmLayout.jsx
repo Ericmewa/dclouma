@@ -23,6 +23,7 @@ import Reports from "../../pages/creator/Reports";
 
 const RmLayout = ({ userId, rmId }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [selectedKey, setSelectedKey] = useState("myqueue");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -56,6 +57,7 @@ const RmLayout = ({ userId, rmId }) => {
 
     // Handle deferral route
     if (e.key === "deferral") {
+      setSelectedKey("deferral");
       navigate("/rm/deferrals/pending");
       return;
     }
@@ -63,6 +65,26 @@ const RmLayout = ({ userId, rmId }) => {
     setSelectedKey(e.key);
     navigate(`/rm/${e.key}`);
   };
+
+  React.useEffect(() => {
+    const path = location.pathname || "";
+
+    if (path.startsWith("/rm/deferrals")) {
+      setSelectedKey("deferral");
+      return;
+    }
+    if (path.startsWith("/rm/completed")) {
+      setSelectedKey("completed");
+      return;
+    }
+    if (path.startsWith("/rm/reports")) {
+      setSelectedKey("reports");
+      return;
+    }
+    if (path === "/rm" || path.startsWith("/rm/myqueue")) {
+      setSelectedKey("myqueue");
+    }
+  }, [location.pathname]);
 
   return (
     <div

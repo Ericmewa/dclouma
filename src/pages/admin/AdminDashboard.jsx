@@ -189,6 +189,20 @@ import {
 
 const { Title } = Typography;
 
+const getCreateUserErrorMessage = (err) => {
+  if (err?.data?.message) return err.data.message;
+
+  const errors = err?.data?.errors;
+  if (errors && typeof errors === "object") {
+    const [firstKey] = Object.keys(errors);
+    const firstError = firstKey ? errors[firstKey]?.[0] : null;
+    if (firstKey && firstError) return `${firstKey}: ${firstError}`;
+    if (firstError) return firstError;
+  }
+
+  return "Failed to create user";
+};
+
 const AdminDashboard = () => {
   const { data: users = [], isLoading, refetch } = useGetUsersQuery();
   // const { data: stats = {}, isFetching: statsLoading } =
@@ -215,7 +229,7 @@ const AdminDashboard = () => {
       setFormData({ name: "", email: "", password: "", role: "customer" });
       refetch();
     } catch (err) {
-      message.error(err?.data?.message || "Failed to create user");
+      message.error(getCreateUserErrorMessage(err));
     }
   };
 
